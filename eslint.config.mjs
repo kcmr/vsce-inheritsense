@@ -1,7 +1,8 @@
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: ["dist/**", "node_modules/**"]
   },
@@ -10,6 +11,7 @@ export default tseslint.config(
   {
     files: ["src/**/*.ts"],
     rules: {
+      complexity: ["warn", 15],
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "off"
     }

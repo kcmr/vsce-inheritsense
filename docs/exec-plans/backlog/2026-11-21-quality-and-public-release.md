@@ -98,7 +98,11 @@ and tooling. These priorities are not security-severity ratings.
   Separate imports/exports, explicit members, declarative properties,
   assignments, and injector recognition. Review hover JSDoc extraction/formatting.
   **Acceptance:** reduce responsibilities, branches, and nesting with behavior
-  coverage; decide whether to enforce complexity limits in ESLint.
+  coverage; reduce the warnings from the configured ESLint complexity limit.
+  **Lint policy (2026-11-21):** `complexity: ["warn", 15]` is configured for
+  `src/**/*.ts` in `eslint.config.mjs`. Existing warnings are accepted until this
+  refactor; run `pnpm lint` without a rule override. Verified: exit code 0,
+  10 complexity warnings, no errors. REF-03 remains pending.
 
   Baseline using `complexity: [warn, 15]` and `max-depth: [warn, 4]`:
 
