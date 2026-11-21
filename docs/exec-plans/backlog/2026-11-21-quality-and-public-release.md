@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 and FIX-01 completed; remaining tasks pending.
+Status: Backlog. TEST-01, FIX-01, and FIX-02 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -139,14 +139,17 @@ and tooling. These priorities are not security-severity ratings.
   regressions. Preserves lexical arrows, class heritage, and computed keys.
   `pnpm test`: 27 passing, 4 remaining TODO reproductions; types and lint pass.
 
-- [ ] **FIX-02 · P1 · Traverse local-class inheritance.**
+- [x] **FIX-02 · P1 · Traverse local-class inheritance.**
   Local-class branches in `resolveMemberOrigins`, `resolveInheritedMemberCatalog`,
   and provider helpers do not continue through superclasses like imported-class
   branches do.
   **Acceptance:** reproduce and resolve `C extends B`, `B extends A` locally,
   exposing `A` members through lookup and catalog; cover cycles and precedence.
-  Executable TODO reproductions: `test/regressions.test.mjs` (lookup and catalog).
-  Promote them to ordinary tests when implementing this fix.
+  Completed 2026-11-21 on `fix/local-class-inheritance`; see
+  [Local-class inheritance fix](../completed/2026-11-21-local-class-inheritance.md).
+  Promoted both TODOs; covers local/imported transitions, factories, nearest-first
+  precedence, injectors, strict/permissive modes, and cycles/current-class exclusion.
+  `pnpm test`: 38 passing, 2 remaining FIX-03 TODOs; types and lint pass.
 
 - [ ] **FIX-03 · P1 · Preserve import and reexport identities.**
   `FileSymbols.imports` retains local names and paths but loses original imported
@@ -238,3 +241,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-21 | Review complete; implementation pending | Source, fixture, manifest, and lockfile inspection; types and lint; temporary complexity checks. |
 | 2026-11-21 | TEST-01 completed | `pnpm test`: 23 passing, 5 TODO reproductions; types and lint pass; no runtime changes. |
 | 2026-11-21 | FIX-01 completed | Lexical `this` traversal for assignments and class injector calls; 27 passing tests, 4 TODO reproductions; types and lint pass. |
+| 2026-11-21 | FIX-02 completed | Recursive local-provider traversal; 38 passing tests, 2 FIX-03 TODO reproductions; types and lint pass. |

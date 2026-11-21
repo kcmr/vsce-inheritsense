@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { extractFileSymbols } from "../dist/parser/symbols.js";
 import { resolveMemberOrigins, resolveInheritedMemberCatalog } from "../dist/resolver/memberResolver.js";
-import { documentInput, moduleGraph } from "./helpers.mjs";
+import { assertOrigin, documentInput, moduleGraph } from "./helpers.mjs";
 
 test("FIX-01: constructor discovery respects nested function/class scopes and lexical arrows", () => {
   const source = `class Example {
@@ -83,12 +83,8 @@ class Subject extends Base { inspect() {} }`
   }
 });
 
-// Execute the intended assertions, but report known failures as TODO rather than
-// passing coverage. Remove TODO when the corresponding fix is implemented.
 for (const mode of ["lookup", "catalog"]) {
-  test(`FIX-02: ${mode} traverses all local ancestors`, {
-    todo: "FIX-02: local-class traversal stops after the direct parent"
-  }, (context) => {
+  test(`FIX-02: ${mode} traverses all local ancestors`, (context) => {
     const file = moduleGraph(context, {
       "subject.js": `class Root { execute() {} }
 class Middle extends Root {}
@@ -99,11 +95,130 @@ class Subject extends Middle { inspect() {} }`
       ? resolveMemberOrigins({ ...input, memberName: "execute" })
       : resolveInheritedMemberCatalog(input);
     assert.equal(origins.length, 1);
-    assert.equal(origins[0].ownerName, "Root");
-    assert.equal(origins[0].memberName, "execute");
+    assertOrigin(origins[0], {
+      memberName: "execute", kind: "method", ownerName: "Root",
+      filePath: file("subject.js"), marker: "execute()", confidence: "high"
+    });
   });
 }
 
+for (const imported of [false, true]) {
+  test(`FIX-02: traverses local providers ${imported ? "inside an imported module" : "before an imported ancestor"}`, (context) => {
+    const file = moduleGraph(context, {
+      "root.js": "export class Root { execute() {} }",
+      "base.js": `import { Root } from './root.js';
+class Middle extends Root {}
+export const Factory = parent => class extends Middle { factoryMethod() {} };`,
+      "subject.js": imported
+        ? `import { Factory } from './base.js';
+class Subject extends Factory(Object) { inspect() {} }`
+        : `import { Root } from './root.js';
+class Middle extends Root {}
+const Factory = parent => class extends Middle { factoryMethod() {} };
+class Subject extends Factory(Object) { inspect() {} }`
+    });
+    const input = documentInput(file("subject.js"), "inspect()");
+    const catalog = resolveInheritedMemberCatalog(input);
+    for (const [memberName, ownerName, originFile, marker] of [
+      ["execute", "Root", "root.js", "execute()"],
+      ["factoryMethod", "Factory", imported ? "base.js" : "subject.js", "factoryMethod()"]
+    ]) {
+      const origins = resolveMemberOrigins({ ...input, memberName });
+      assert.equal(origins.length, 1);
+      assertOrigin(origins[0], { memberName, kind: "method", ownerName, filePath: file(originFile), marker, confidence: "high" });
+      assert.deepEqual(catalog.filter((origin) => origin.memberName === memberName), origins);
+    }
+  });
+}
+
+test("FIX-02: local recursion uses the current document source before saving", (context) => {
+  const file = moduleGraph(context, {
+    "subject.js": `class Root { savedMember() {} }
+class Middle extends Root {}
+class Subject extends Middle { inspect() {} }`
+  });
+  const saved = documentInput(file("subject.js"), "inspect()");
+  const input = { ...saved, sourceCode: saved.sourceCode.replace("savedMember", "editedMember") };
+  const catalog = resolveInheritedMemberCatalog(input);
+  const origins = resolveMemberOrigins({ ...input, memberName: "editedMember" });
+  assert.equal(origins.length, 1);
+  assert.equal(origins[0].ownerName, "Root");
+  assert.equal(origins[0].line, 1);
+  assert.equal(origins[0].filePath, input.filePath);
+  assert.deepEqual(catalog, origins);
+  assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "savedMember" }), []);
+});
+
+test("FIX-02: nearest declarations and injectors precede ancestor origins", (context) => {
+  const file = moduleGraph(context, {
+    "subject.js": `function install(target) { target.injected = true; target.execute = () => {}; }
+class Root { execute() {} injected() {} inherited() {} }
+class Middle extends Root { constructor() { install(this); } execute() {} }
+class Subject extends Middle { inspect() {} }`
+  });
+  const input = documentInput(file("subject.js"), "inspect()");
+  const catalog = resolveInheritedMemberCatalog(input);
+  for (const [memberName, ownerName, kind] of [["execute", "Middle", "method"], ["injected", "install", "field"], ["inherited", "Root", "method"]]) {
+    const origins = resolveMemberOrigins({ ...input, memberName });
+    assert.equal(origins.length, 1);
+    assert.equal(origins[0].ownerName, ownerName);
+    assert.equal(origins[0].kind, kind);
+    assert.deepEqual(catalog.find((origin) => origin.memberName === memberName), origins[0]);
+  }
+  assert.deepEqual(catalog.filter((origin) => origin.memberName === "execute").map(({ ownerName }) => ownerName), ["Middle", "install", "Root"]);
+});
+
+test("FIX-02: deep ancestors preserve injectors and strict/permissive assignment discovery", (context) => {
+  const file = moduleGraph(context, {
+    "install.js": "export function install(target) { target.injected = true; }",
+    "subject.js": `import { install } from './install.js';
+class Root {
+  constructor() { this.own = true; install(this); }
+  configure() { this.dynamic = true; }
+}
+class Middle extends Root {}
+class Subject extends Middle { inspect() {} }`
+  });
+  for (const includeMethodAssignedFields of [false, true]) {
+    const input = { ...documentInput(file("subject.js"), "inspect()"), includeMethodAssignedFields };
+    const catalog = resolveInheritedMemberCatalog(input);
+    for (const memberName of ["own", "injected", "dynamic"]) {
+      const origins = resolveMemberOrigins({ ...input, memberName });
+      assert.equal(origins.length, memberName === "dynamic" && !includeMethodAssignedFields ? 0 : 1);
+      assert.deepEqual(catalog.filter((origin) => origin.memberName === memberName), origins);
+    }
+  }
+});
+
+for (const cycle of ["ancestors", "current", "imported", "self"]) {
+  test(`FIX-02: terminates ${cycle} cycles and honors current-class inclusion`, (context) => {
+    const file = moduleGraph(context, {
+      "base.js": `import { Subject } from './subject.js'; export class Middle extends Subject { inherited() {} }`,
+      "subject.js": cycle === "imported"
+        ? `import { Middle } from './base.js';
+export class Subject extends Middle { inspect() {} }`
+        : cycle === "self"
+          ? "class Subject extends Subject { inspect() {} }"
+          : `class Root extends ${cycle === "current" ? "Subject" : "Middle"} { inherited() {} }
+class Middle extends Root {}
+class Subject extends Middle { inspect() {} }`
+    });
+    const input = documentInput(file("subject.js"), "inspect()");
+    for (const includeCurrentClass of [false, true]) {
+      const options = { ...input, includeCurrentClass };
+      const catalog = resolveInheritedMemberCatalog(options);
+      assert.equal(catalog.filter((origin) => origin.memberName === "inspect").length, includeCurrentClass ? 1 : 0);
+      for (const memberName of ["inspect", "inherited", "missing"]) {
+        const origins = resolveMemberOrigins({ ...options, memberName });
+        assert.deepEqual(origins, catalog.filter((origin) => origin.memberName === memberName));
+        assert.equal(origins.length, memberName === "inspect" ? Number(includeCurrentClass) : memberName === "inherited" && cycle !== "self" ? 1 : 0);
+      }
+    }
+  });
+}
+
+// Execute the intended assertions, but report known failures as TODO rather than
+// passing coverage. Remove TODO when the corresponding fix is implemented.
 for (const mode of ["import", "reexport"]) {
   test(`FIX-03: resolves a renamed ${mode} to its exported identity`, {
     todo: "FIX-03: import metadata loses the original exported name"

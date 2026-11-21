@@ -27,6 +27,7 @@ Implemented:
 - JavaScript support: `.js`, `.mjs`, `.cjs`
 - Member origin resolution for methods, getters, setters, and fields
 - Resolution of direct and nested provider chains across local imports
+- Multi-level local-class inheritance, with cycle guards and nearest-first origins
 - Quick Pick result list with navigation to selected origin
 - Hover provider showing inherited origins (local class members are filtered out in hover)
 - Definition provider enabling Cmd/Ctrl+Click navigation to inherited origins

@@ -232,10 +232,13 @@ function findMemberFromProviders(
   for (const nestedProvider of providers) {
     const localNestedClass = symbols.classes.find((candidate) => candidate.name === nestedProvider.localName);
     if (localNestedClass) {
-      const nestedMember = findMember(localNestedClass, memberName);
-      if (nestedMember) {
-        return toOrigin(nestedMember, localNestedClass.name, ownerFilePath, "high", nestedProvider.notes);
+      const nestedFound = findProviderMemberInSymbols(
+        symbols, ownerFilePath, nestedProvider, memberName, visited, options
+      );
+      if (nestedFound) {
+        return nestedFound;
       }
+      continue;
     }
 
     const nestedSource = symbols.imports.get(nestedProvider.importLookupName ?? nestedProvider.localName);
@@ -275,9 +278,10 @@ function collectMembersFromProviders(
   for (const nestedProvider of providers) {
     const localNestedClass = symbols.classes.find((candidate) => candidate.name === nestedProvider.localName);
     if (localNestedClass) {
-      for (const member of localNestedClass.members) {
-        collected.push(toOrigin(member, localNestedClass.name, ownerFilePath, "high", nestedProvider.notes));
-      }
+      collected.push(...collectProviderMembersInSymbols(
+        symbols, ownerFilePath, nestedProvider, visited, options
+      ));
+      continue;
     }
 
     const nestedSource = symbols.imports.get(nestedProvider.importLookupName ?? nestedProvider.localName);
@@ -408,12 +412,28 @@ function findProviderMemberInFile(
   if (visited.has(visitKey)) {
     return null;
   }
-  visited.add(visitKey);
 
   const sourceCode = fs.readFileSync(filePath, "utf8");
   const symbols = extractFileSymbols(sourceCode, filePath, {
     includeMethodAssignedFields: options?.includeMethodAssignedFields
   });
+
+  return findProviderMemberInSymbols(symbols, filePath, provider, memberName, visited, options);
+}
+
+function findProviderMemberInSymbols(
+  symbols: ReturnType<typeof extractFileSymbols>,
+  filePath: string,
+  provider: ProviderRef,
+  memberName: string,
+  visited: Set<string>,
+  options?: ResolverBehaviorOptions
+): MemberOrigin | null {
+  const visitKey = `${filePath}::${provider.localName}`;
+  if (visited.has(visitKey)) {
+    return null;
+  }
+  visited.add(visitKey);
 
   const providerClass = symbols.classes.find((candidate) => candidate.name === provider.localName);
   if (providerClass) {
@@ -499,12 +519,27 @@ function collectProviderMembersInFile(
   if (visited.has(visitKey)) {
     return [];
   }
-  visited.add(visitKey);
 
   const sourceCode = fs.readFileSync(filePath, "utf8");
   const symbols = extractFileSymbols(sourceCode, filePath, {
     includeMethodAssignedFields: options?.includeMethodAssignedFields
   });
+  return collectProviderMembersInSymbols(symbols, filePath, provider, visited, options);
+}
+
+function collectProviderMembersInSymbols(
+  symbols: ReturnType<typeof extractFileSymbols>,
+  filePath: string,
+  provider: ProviderRef,
+  visited: Set<string>,
+  options?: ResolverBehaviorOptions
+): MemberOrigin[] {
+  const visitKey = `${filePath}::${provider.localName}`;
+  if (visited.has(visitKey)) {
+    return [];
+  }
+  visited.add(visitKey);
+
   const collected: MemberOrigin[] = [];
 
   const providerClass = symbols.classes.find((candidate) => candidate.name === provider.localName);
@@ -597,20 +632,11 @@ export function resolveInheritedMemberCatalog(input: ResolveCatalogInput): Membe
   for (const provider of providers) {
     const localClass = symbols.classes.find((candidate) => candidate.name === provider.localName);
     if (localClass) {
-      for (const member of localClass.members) {
-        origins.push(toOrigin(member, localClass.name, input.filePath, "high", provider.notes));
-      }
-
-      const injectedCollected = collectInjectedMembersFromClassInjectors(
-        symbols,
-        input.filePath,
-        localClass,
-        new Set<string>(),
-        {
-          includeMethodAssignedFields: input.includeMethodAssignedFields
-        }
-      );
-      origins.push(...injectedCollected);
+      origins.push(...collectProviderMembersInSymbols(
+        symbols, input.filePath, provider,
+        new Set([`${input.filePath}::${currentClass.name}`]),
+        { includeMethodAssignedFields: input.includeMethodAssignedFields }
+      ));
       continue;
     }
 
@@ -624,7 +650,7 @@ export function resolveInheritedMemberCatalog(input: ResolveCatalogInput): Membe
       continue;
     }
 
-    const importedMembers = collectProviderMembersInFile(resolved, provider, new Set<string>(), {
+    const importedMembers = collectProviderMembersInFile(resolved, provider, new Set([`${input.filePath}::${currentClass.name}`]), {
       includeMethodAssignedFields: input.includeMethodAssignedFields
     });
     origins.push(...importedMembers);
@@ -654,23 +680,13 @@ export function resolveMemberOrigins(input: ResolveInput): MemberOrigin[] {
   for (const provider of providers) {
     const localClass = symbols.classes.find((candidate) => candidate.name === provider.localName);
     if (localClass) {
-      const member = findMember(localClass, input.memberName);
-      if (member) {
-        origins.push(toOrigin(member, localClass.name, input.filePath, "high", provider.notes));
-      } else {
-        const injectedMember = findInjectedMemberFromClassInjectors(
-          symbols,
-          input.filePath,
-          localClass,
-          input.memberName,
-          new Set<string>(),
-          {
-            includeMethodAssignedFields: input.includeMethodAssignedFields
-          }
-        );
-        if (injectedMember) {
-          origins.push(injectedMember);
-        }
+      const origin = findProviderMemberInSymbols(
+        symbols, input.filePath, provider, input.memberName,
+        new Set([`${input.filePath}::${currentClass.name}`]),
+        { includeMethodAssignedFields: input.includeMethodAssignedFields }
+      );
+      if (origin) {
+        origins.push(origin);
       }
       continue;
     }
@@ -689,7 +705,7 @@ export function resolveMemberOrigins(input: ResolveInput): MemberOrigin[] {
       resolved,
       provider,
       input.memberName,
-      new Set<string>(),
+      new Set([`${input.filePath}::${currentClass.name}`]),
       {
         includeMethodAssignedFields: input.includeMethodAssignedFields
       }
