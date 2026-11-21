@@ -6,16 +6,8 @@ function expressionToProviderRef(expression: t.Expression): ProviderRef | null {
     return { localName: expression.name };
   }
 
-  if (t.isMemberExpression(expression) && !expression.computed && t.isIdentifier(expression.property)) {
-    const provider: ProviderRef = {
-      localName: expression.property.name
-    };
-
-    if (t.isIdentifier(expression.object)) {
-      provider.importLookupName = expression.object.name;
-    }
-
-    return provider;
+  if (t.isMemberExpression(expression) && !expression.computed && t.isIdentifier(expression.property) && t.isIdentifier(expression.object)) {
+    return { localName: expression.property.name, importLookupName: expression.object.name };
   }
 
   return null;

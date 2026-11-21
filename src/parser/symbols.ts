@@ -2,6 +2,8 @@ import * as t from "@babel/types";
 import type {
     ClassSymbol,
     FileSymbols,
+    ImportBinding,
+    ExportBinding,
     MemberDeclaration,
     MemberKind,
     ProviderRef
@@ -93,12 +95,8 @@ function toProviderRefFromExpression(expression: t.Expression): ProviderRef | nu
     return { localName: expression.name };
   }
 
-  if (t.isMemberExpression(expression) && !expression.computed && t.isIdentifier(expression.property)) {
-    const provider: ProviderRef = { localName: expression.property.name };
-    if (t.isIdentifier(expression.object)) {
-      provider.importLookupName = expression.object.name;
-    }
-    return provider;
+  if (t.isMemberExpression(expression) && !expression.computed && t.isIdentifier(expression.property) && t.isIdentifier(expression.object)) {
+    return { localName: expression.property.name, importLookupName: expression.object.name };
   }
 
   return null;
@@ -143,6 +141,10 @@ function collectClassInjectorCalls(classNode: t.Class): ProviderRef[] {
     seen.add(key);
     return true;
   });
+}
+
+function moduleName(node: t.Identifier | t.StringLiteral): string {
+  return t.isIdentifier(node) ? node.name : node.value;
 }
 
 function memberNameFromKey(key: t.Expression | t.PrivateName): string | null {
@@ -275,6 +277,15 @@ function collectLocalFunctions(programStatements: t.Statement[]): Map<string, An
 
     if (t.isFunctionDeclaration(statement) || t.isVariableDeclaration(statement)) {
       handleDeclaration(statement);
+      continue;
+    }
+
+    if (t.isExportDefaultDeclaration(statement)) {
+      const declaration = statement.declaration;
+      if (t.isFunctionDeclaration(declaration) || t.isFunctionExpression(declaration) || t.isArrowFunctionExpression(declaration)) {
+        const name = ("id" in declaration && declaration.id?.name) || "default";
+        functions.set(name, declaration);
+      }
       continue;
     }
 
@@ -720,7 +731,8 @@ export function extractFileSymbols(
   options?: ExtractSymbolsOptions
 ): FileSymbols {
   const ast = parseJavaScript(sourceCode, filePath);
-  const imports = new Map<string, string>();
+  const imports = new Map<string, ImportBinding>();
+  const exports = new Map<string, ExportBinding>();
   const exportedInitializers = new Map<string, t.Expression>();
   const classes: ClassSymbol[] = [];
   const injectors = collectInjectors(ast.program.body);
@@ -729,7 +741,10 @@ export function extractFileSymbols(
     if (t.isImportDeclaration(statement)) {
       for (const specifier of statement.specifiers) {
         if (t.isImportSpecifier(specifier) || t.isImportDefaultSpecifier(specifier) || t.isImportNamespaceSpecifier(specifier)) {
-          imports.set(specifier.local.name, statement.source.value);
+          const importedName = t.isImportSpecifier(specifier)
+            ? moduleName(specifier.imported)
+            : t.isImportDefaultSpecifier(specifier) ? "default" : null;
+          imports.set(specifier.local.name, { source: statement.source.value, importedName });
         }
       }
       continue;
@@ -748,23 +763,42 @@ export function extractFileSymbols(
       continue;
     }
 
+    if (t.isExportDefaultDeclaration(statement)) {
+      const declaration = statement.declaration;
+      if (t.isIdentifier(declaration)) {
+        exports.set("default", { localName: declaration.name });
+        continue;
+      }
+      const name = ((t.isClassDeclaration(declaration) || t.isFunctionDeclaration(declaration) ||
+        t.isClassExpression(declaration) || t.isFunctionExpression(declaration)) && declaration.id?.name) || "default";
+      exports.set("default", { localName: name });
+      const classNode = findClassFromExpression(declaration);
+      if (classNode) {
+        classes.push(toClassSymbol(name, classNode, options));
+      }
+      if (t.isExpression(declaration)) {
+        exportedInitializers.set(name, declaration);
+      }
+      continue;
+    }
+
     if (t.isExportNamedDeclaration(statement)) {
-      if (statement.source) {
-        for (const specifier of statement.specifiers) {
-          if (t.isExportSpecifier(specifier)) {
-            if (t.isIdentifier(specifier.local)) {
-              imports.set(specifier.local.name, statement.source.value);
-            }
-            if (t.isIdentifier(specifier.exported)) {
-              imports.set(specifier.exported.name, statement.source.value);
-            }
-          } else if (t.isExportNamespaceSpecifier(specifier) && t.isIdentifier(specifier.exported)) {
-            imports.set(specifier.exported.name, statement.source.value);
-          }
+      for (const specifier of statement.specifiers) {
+        const exportedName = moduleName(specifier.exported);
+        if (t.isExportSpecifier(specifier)) {
+          const localName = moduleName(specifier.local);
+          exports.set(exportedName, statement.source
+            ? { source: statement.source.value, importedName: localName }
+            : { localName });
+        } else if (t.isExportNamespaceSpecifier(specifier) && statement.source) {
+          exports.set(exportedName, { source: statement.source.value, importedName: null });
         }
       }
 
       const declaration = statement.declaration;
+      if (declaration && (t.isClassDeclaration(declaration) || t.isFunctionDeclaration(declaration)) && declaration.id) {
+        exports.set(declaration.id.name, { localName: declaration.id.name });
+      }
       if (!declaration) {
         continue;
       }
@@ -788,6 +822,7 @@ export function extractFileSymbols(
             continue;
           }
 
+          exports.set(variable.id.name, { localName: variable.id.name });
           exportedInitializers.set(variable.id.name, variable.init);
 
           const classNode = t.isClassExpression(variable.init)
@@ -823,6 +858,7 @@ export function extractFileSymbols(
   return {
     classes,
     imports,
+    exports,
     exportedInitializers,
     injectors
   };

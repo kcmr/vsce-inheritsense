@@ -217,12 +217,8 @@ class Subject extends Middle { inspect() {} }`
   });
 }
 
-// Execute the intended assertions, but report known failures as TODO rather than
-// passing coverage. Remove TODO when the corresponding fix is implemented.
 for (const mode of ["import", "reexport"]) {
-  test(`FIX-03: resolves a renamed ${mode} to its exported identity`, {
-    todo: "FIX-03: import metadata loses the original exported name"
-  }, (context) => {
+  test(`FIX-03: resolves a renamed ${mode} to its exported identity`, (context) => {
     const file = moduleGraph(context, {
       "root.js": "export class Root { execute() {} }",
       "index.js": "export { Root as Renamed } from './root.js';",

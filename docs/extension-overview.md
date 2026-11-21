@@ -28,6 +28,8 @@ Implemented:
 - Member origin resolution for methods, getters, setters, and fields
 - Resolution of direct and nested provider chains across local imports
 - Multi-level local-class inheritance, with cycle guards and nearest-first origins
+- Named import/reexport aliases, local export lists, default exports, and namespace
+  members (`ns.Root`, `ns.default`) for providers and injector calls
 - Quick Pick result list with navigation to selected origin
 - Hover provider showing inherited origins (local class members are filtered out in hover)
 - Definition provider enabling Cmd/Ctrl+Click navigation to inherited origins
@@ -40,6 +42,8 @@ Out of scope (still pending):
 
 - TypeScript type-level inference
 - Full module resolution parity with bundlers/tsconfig paths/package exports
+- Wildcard export discovery (`export * from`), nested/computed namespace access,
+  arbitrary default-object properties, and CommonJS export inference
 - Runtime-only injected members
 - CodeLens decorations
 - Workspace-level AST cache/invalidation
@@ -93,12 +97,17 @@ Out of scope (still pending):
     - `static get properties()` keys
     - constructor-assigned fields (`this.x = ...`)
     - optional permissive extraction from non-constructor methods
+    - separate import/export identities, including defaults and namespace reexports
 
 - `src/resolver/inheritanceResolver.ts`
   - provider chain extraction from extends expressions
 
 - `src/resolver/importResolver.ts`
   - local relative import path resolution
+
+- `src/resolver/moduleBindings.ts`
+  - translates local/exported identities and namespace qualifiers at module edges
+  - preserves declared origin names; anonymous default owners are named `default`
 
 - `src/resolver/memberResolver.ts`
   - origin resolution for a specific member
@@ -157,10 +166,11 @@ Its contract follow-up remains in the
 ## 8. Development plan (next steps)
 
 Parser/resolver tests and strict/permissive coverage run with `pnpm test`;
-see [test instructions and coverage](../test/README.md). Known correctness
-failures are executable TODO tests, not passing regression coverage.
+see [test instructions and coverage](../test/README.md). The five recorded
+correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
+there are no remaining TODO tests.
 
-1. Fix the recorded correctness failures and promote their TODO tests.
+1. Consolidate resolver traversal and AST extraction with behavior coverage.
 2. Add hover/definition/completion extension-host tests when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.

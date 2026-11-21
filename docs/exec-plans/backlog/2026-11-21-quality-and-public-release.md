@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01, FIX-01, and FIX-02 completed; remaining tasks pending.
+Status: Backlog. TEST-01 and FIX-01 through FIX-03 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -151,13 +151,18 @@ and tooling. These priorities are not security-severity ratings.
   precedence, injectors, strict/permissive modes, and cycles/current-class exclusion.
   `pnpm test`: 38 passing, 2 remaining FIX-03 TODOs; types and lint pass.
 
-- [ ] **FIX-03 · P1 · Preserve import and reexport identities.**
+- [x] **FIX-03 · P1 · Preserve import and reexport identities.**
   `FileSymbols.imports` retains local names and paths but loses original imported
   names. Aliases can cause lookup of names that do not exist in the target file.
   **Acceptance:** cover renamed imports and aliased reexports; define and verify
   default-import and namespace-import behavior.
-  Executable TODO reproductions: `test/regressions.test.mjs` (renamed import and
-  reexport). Promote them to ordinary tests when implementing this fix.
+  Completed 2026-11-21 on `fix/import-export-identities`; see
+  [Import/export identity fix](../completed/2026-11-21-import-export-identities.md).
+  Imports and exports preserve separate local/exported identities. Lookup and
+  catalogs cover aliases, local export lists, defaults, namespaces, injectors,
+  metadata, modes, precedence, negative cases, and cycles. Both TODOs promoted.
+  `pnpm test`: 79 passing, no TODOs; types and lint pass. Wildcard export discovery,
+  nested/computed namespace chains, and CommonJS export inference remain outside scope.
 
 - [ ] **PERF-01 · P2 · Avoid repeated reads and parsing.**
   Resolution performs synchronous reads and repeated extraction per request.
@@ -187,8 +192,8 @@ and tooling. These priorities are not security-severity ratings.
   `pnpm test` compiles sources and runs 23 passing tests plus 5 executable TODO
   reproductions for FIX-01 through FIX-03. Covers strict/permissive modes,
   composition, injectors, origin metadata, imports, catalogs, and cycles.
-  Known failures remain open under their fix IDs. Extension-host integration
-  tests are required when modifying provider behavior; see [test scope](../../../test/README.md).
+  Those five reproductions were subsequently fixed under FIX-01 through FIX-03.
+  Extension-host integration tests are required when modifying provider behavior; see [test scope](../../../test/README.md).
 
 ## Proposed execution order
 
@@ -202,7 +207,7 @@ and tooling. These priorities are not security-severity ratings.
 ## Overall acceptance criteria
 
 - [ ] Fixture helper contracts are explicit and verified.
-- [ ] Recorded resolution failures are reproduced and fixed with regression tests.
+- [x] Recorded resolution failures are reproduced and fixed with regression tests.
 - [ ] Individual lookup and catalog use consistent, verified resolution rules.
 - [ ] Dependencies are justified and compatible with supported environments.
 - [ ] Types, lint, and relevant tests pass; remaining limitations are documented.
@@ -242,3 +247,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-21 | TEST-01 completed | `pnpm test`: 23 passing, 5 TODO reproductions; types and lint pass; no runtime changes. |
 | 2026-11-21 | FIX-01 completed | Lexical `this` traversal for assignments and class injector calls; 27 passing tests, 4 TODO reproductions; types and lint pass. |
 | 2026-11-21 | FIX-02 completed | Recursive local-provider traversal; 38 passing tests, 2 FIX-03 TODO reproductions; types and lint pass. |
+| 2026-11-21 | FIX-03 completed | Separate import/export identities; alias/default/namespace provider and injector resolution; 79 passing tests, no TODOs; types and lint pass. |

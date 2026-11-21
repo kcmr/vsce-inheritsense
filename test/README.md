@@ -14,16 +14,19 @@ its version, and no VS Code extension host is required.
   cycles, missing members, and missing files.
 - `import-resolver.test.mjs`: relative files, extensions, directory indexes,
   package entry points, and missing paths.
-- `regressions.test.mjs`: enforced FIX-01 coverage for lexical `this` assignment
-  scopes and injector calls (lookup/catalog); FIX-02 local ancestry, factories,
-  imported transitions, precedence, cycles, and resolution modes; executable TODO
-  reproductions for FIX-03 in the [quality register](../docs/exec-plans/backlog/2026-11-21-quality-and-public-release.md).
+- `regressions.test.mjs`: enforced FIX-01 lexical `this` scopes and injector calls;
+  FIX-02 local ancestry, factories, imported transitions, precedence, cycles, and
+  resolution modes; promoted FIX-03 alias reproductions.
+- `module-identities.test.mjs`: FIX-03 import/export metadata, alias chains, local
+  export lists, named/anonymous defaults, namespace members/reexports, provider
+  and injector lookup/catalog agreement, modes, precedence, and cycles. Negative
+  coverage rejects unexported symbols, bare namespaces, unrelated same-named local
+  declarations, and unsupported nested access/wildcard discovery.
 
-TODO tests run assertions for the intended behavior and currently fail as
-expected. Node reports them separately and excludes them from the passing test
-count; they do not make the command fail. When implementing a corresponding
-fix, remove its `todo` option so that these assertions become enforced regression
-coverage. Do not mark a bug fixed merely because the overall test command succeeds.
+All current tests are enforced; there are no TODO tests. Future known-failure
+reproductions may use Node's `todo` option temporarily, but must be reported
+separately and promoted when fixed. A passing command with TODO failures does not
+establish that the corresponding bugs are fixed.
 
 Tests use the public component fixtures and isolated temporary module graphs.
 Temporary files are removed after each test. Node's package resolver canonicalizes
@@ -37,7 +40,7 @@ accept module graphs that cannot execute, such as cyclic class inheritance.
 
 For a focused run after compilation, use
 `node --test test/parser.test.mjs` (or another test file). For the original baseline
-without regression tests or known-failure reports, run
+without the regression and module-identity test files, run
 `node --test test/parser.test.mjs test/resolver.test.mjs test/import-resolver.test.mjs`.
 
 For enforced scope regressions after compilation, run
@@ -45,3 +48,6 @@ For enforced scope regressions after compilation, run
 
 For local-inheritance regressions after compilation, run
 `node --test --test-name-pattern="FIX-02" test/regressions.test.mjs`.
+
+For module-identity coverage after compilation, run
+`node --test test/module-identities.test.mjs`.

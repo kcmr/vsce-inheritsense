@@ -46,7 +46,7 @@ test("fixture strict mode includes declarative/constructor fields but excludes m
   }
   assert.equal(component.members.filter((member) => member.name === "needsRefresh").length, 1);
   assert(!component.members.some((member) => ["_label", "_resource"].includes(member.name)));
-  assert.equal(symbols.imports.get("eventMixin"), "../mixins/event-mixin.js");
+  assert.deepEqual(symbols.imports.get("eventMixin"), { source: "../mixins/event-mixin.js", importedName: "eventMixin" });
   assert(symbols.exportedInitializers.has("ConfigurableComponent"));
 });
 

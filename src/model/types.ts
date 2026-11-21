@@ -18,9 +18,18 @@ export interface ClassSymbol {
   endLine: number;
 }
 
+export interface ImportBinding {
+  source: string;
+  // null denotes a module namespace, which requires member access.
+  importedName: string | null;
+}
+
+export type ExportBinding = { localName: string } | ImportBinding;
+
 export interface FileSymbols {
   classes: ClassSymbol[];
-  imports: Map<string, string>;
+  imports: Map<string, ImportBinding>;
+  exports: Map<string, ExportBinding>;
   exportedInitializers: Map<string, t.Expression>;
   injectors: Map<string, MemberDeclaration[]>;
 }
