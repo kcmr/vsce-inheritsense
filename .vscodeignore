@@ -1,0 +1,7 @@
+**/.git/**
+**/.github/**
+**/.vscode/**
+src/**
+tsconfig.json
+eslint.config.mjs
+docs/extension-overview.md

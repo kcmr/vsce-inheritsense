@@ -1,0 +1,79 @@
+{
+  "name": "inheritsense",
+  "displayName": "InheritSense",
+  "description": "Trace member origins across class factories and mixins.",
+  "version": "0.0.16",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=24"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:inheritSense.traceSelectedSymbol",
+    "onLanguage:javascript"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "inheritSense.traceSelectedSymbol",
+        "title": "InheritSense: Trace Selected Symbol"
+      }
+    ],
+    "configuration": {
+      "title": "InheritSense",
+      "properties": {
+        "inheritSense.completion.enableInheritedSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inherited member suggestions for 'this.' completions in JavaScript files."
+        },
+        "inheritSense.resolution.includeMethodAssignedFields": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Permissive mode: treat assignments like `this.someField = ...` inside non-constructor methods as member declarations during origin/completion resolution. This can improve discovery for dynamic codebases, but may introduce less precise results."
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "inheritSense.traceSelectedSymbol",
+          "when": "editorTextFocus && (resourceExtname == .js || resourceExtname == .mjs || resourceExtname == .cjs)",
+          "group": "navigation@100"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "inheritSense.traceSelectedSymbol",
+          "when": "false"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint .",
+    "prepackage": "npm version patch --no-git-tag-version && npm run compile && npm run lint",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.27.7",
+    "@babel/traverse": "^7.27.7",
+    "@babel/types": "^7.27.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^26.6.6",
+    "@types/vscode": "^1.95.0",
+    "eslint": "^9.39.5",
+    "typescript": "^6.0.0",
+    "typescript-eslint": "^8.18.0",
+    "@vscode/vsce": "^4.1.1"
+  }
+}
