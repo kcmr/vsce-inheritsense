@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. Review complete; implementation pending.
+Status: Backlog. TEST-01 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -24,7 +24,7 @@ Relevant files:
 - `src/resolver/`: imports, inheritance, and member origins.
 - `src/providers/`: VS Code integration.
 - `src/commands/traceMemberOrigin.ts`, `src/ui/quickPick.ts`: command and selection.
-- `test/fixtures/`: reproduction examples; no automated tests yet.
+- `test/`: Node parser/resolver tests and reproduction fixtures; see [test coverage](../../../test/README.md).
 - `docs/extension-overview.md`: scope, behavior, settings, and architecture.
 - `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`: tools and dependencies.
 
@@ -133,6 +133,8 @@ and tooling. These priorities are not security-severity ratings.
   distinguishing the owner of `this`. Review injector/call detection similarly.
   **Acceptance:** reproduce and prevent incorrect attribution; distinguish arrow
   functions with lexical `this` from functions/classes with separate contexts.
+  Executable TODO reproduction: `test/regressions.test.mjs` (nested scopes).
+  Promote it to an ordinary test when implementing this fix.
 
 - [ ] **FIX-02 · P1 · Traverse local-class inheritance.**
   Local-class branches in `resolveMemberOrigins`, `resolveInheritedMemberCatalog`,
@@ -140,12 +142,16 @@ and tooling. These priorities are not security-severity ratings.
   branches do.
   **Acceptance:** reproduce and resolve `C extends B`, `B extends A` locally,
   exposing `A` members through lookup and catalog; cover cycles and precedence.
+  Executable TODO reproductions: `test/regressions.test.mjs` (lookup and catalog).
+  Promote them to ordinary tests when implementing this fix.
 
 - [ ] **FIX-03 · P1 · Preserve import and reexport identities.**
   `FileSymbols.imports` retains local names and paths but loses original imported
   names. Aliases can cause lookup of names that do not exist in the target file.
   **Acceptance:** cover renamed imports and aliased reexports; define and verify
   default-import and namespace-import behavior.
+  Executable TODO reproductions: `test/regressions.test.mjs` (renamed import and
+  reexport). Promote them to ordinary tests when implementing this fix.
 
 - [ ] **PERF-01 · P2 · Avoid repeated reads and parsing.**
   Resolution performs synchronous reads and repeated extraction per request.
@@ -169,20 +175,23 @@ and tooling. These priorities are not security-severity ratings.
 
 ### Automated verification
 
-- [ ] **TEST-01 · P1 · Turn fixtures into reproducible tests.**
-  There is no automated suite or `test` script.
-  **Acceptance:** parser/resolver tests cover strict/permissive modes,
-  composition, injectors, and FIX-01 through FIX-03 regressions. Add extension-host
-  integration checks for hover, definition, and completion where needed.
+- [x] **TEST-01 · P1 · Turn fixtures into reproducible tests.**
+  Completed 2026-11-21 on `test/parser-resolver-coverage`; see
+  [Parser and resolver tests](../completed/2026-11-21-parser-resolver-tests.md).
+  `pnpm test` compiles sources and runs 23 passing tests plus 5 executable TODO
+  reproductions for FIX-01 through FIX-03. Covers strict/permissive modes,
+  composition, injectors, origin metadata, imports, catalogs, and cycles.
+  Known failures remain open under their fix IDs. Extension-host integration
+  tests are required when modifying provider behavior; see [test scope](../../../test/README.md).
 
 ## Proposed execution order
 
-1. Review the wrapper contract separately (FIXTURE-03).
-2. Add characterization tests and failure reproductions.
-3. Fix scope handling, local inheritance, and import identity.
-4. Share traversal/extraction and reduce complexity and UI duplication.
-5. Review dependency and runtime compatibility in independent changes.
-6. Measure performance, improve diagnostics, and update documentation.
+1. Fix scope handling, local inheritance, and import identity on separate branches,
+   promoting their TODO reproductions to normal regression tests.
+2. Share traversal/extraction and reduce complexity and UI duplication.
+3. Review dependency and runtime compatibility in independent changes.
+4. Review the wrapper contract separately (FIXTURE-03).
+5. Measure performance, improve diagnostics, and update documentation.
 
 ## Overall acceptance criteria
 
@@ -224,3 +233,4 @@ Do not use packaging as a side-effect-free check.
 | Date | Status | Evidence |
 | --- | --- | --- |
 | 2026-11-21 | Review complete; implementation pending | Source, fixture, manifest, and lockfile inspection; types and lint; temporary complexity checks. |
+| 2026-11-21 | TEST-01 completed | `pnpm test`: 23 passing, 5 TODO reproductions; types and lint pass; no runtime changes. |

@@ -14,7 +14,7 @@
 - `src/resolver/`: import, inheritance, and member-origin resolution.
 - `src/providers/`: VS Code hover, definition, and completion providers.
 - `src/commands/`, `src/ui/`: trace command and origin selection.
-- `test/fixtures/`: JavaScript examples; no automated test suite yet.
+- `test/`: Node parser/resolver tests and JavaScript fixtures; see [test coverage](test/README.md).
 - `docs/agent-harness/`: agent workflow and execution-plan template.
 - `docs/exec-plans/`: backlog, active, and completed work.
 
@@ -32,7 +32,8 @@
 
 - Types without generated output: `pnpm exec tsc --noEmit -p .`.
 - Lint: `pnpm lint`.
-- Run targeted tests when available; do not claim fixtures alone are tests.
+- Tests: `pnpm test` compiles current sources and runs the Node suite. Report
+  TODO reproductions separately from passing tests; promote them when fixing bugs.
 - `pnpm compile` writes `dist/`. `pnpm package` also increments the package
   version through `prepackage`; use it only for an intended packaging task.
 - Report checks run, outcomes, and material limitations. Documentation-only work

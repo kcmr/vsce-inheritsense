@@ -155,11 +155,14 @@ Its contract follow-up remains in the
 
 ## 8. Development plan (next steps)
 
-1. Add unit tests for parser/resolver using the fixtures above.
-2. Add tests for strict vs permissive mode behavior.
-3. Add tests for hover/definition/completion integration (extension host tests).
-4. Improve confidence scoring with explicit strict/permissive markers.
-5. Add optional cache layer for repeated parsing and workspace-size scalability.
+Parser/resolver tests and strict/permissive coverage run with `pnpm test`;
+see [test instructions and coverage](../test/README.md). Known correctness
+failures are executable TODO tests, not passing regression coverage.
+
+1. Fix the recorded correctness failures and promote their TODO tests.
+2. Add hover/definition/completion extension-host tests when changing provider behavior.
+3. Improve confidence scoring with explicit strict/permissive markers.
+4. Add optional cache invalidation for repeated parsing and workspace-size scalability.
 
 ## 9. Related documentation
 

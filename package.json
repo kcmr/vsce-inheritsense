@@ -59,6 +59,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint .",
+    "test": "tsc -p ./ && node --test test/*.test.mjs",
     "prepackage": "npm version patch --no-git-tag-version && npm run compile && npm run lint",
     "package": "vsce package"
   },
