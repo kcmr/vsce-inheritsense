@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 completed; remaining tasks pending.
+Status: Backlog. TEST-01 and FIX-01 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -128,13 +128,16 @@ and tooling. These priorities are not security-severity ratings.
 
 ### Correctness, performance, and diagnostics
 
-- [ ] **FIX-01 · P1 · Respect scopes when collecting assignments.**
+- [x] **FIX-01 · P1 · Respect scopes when collecting assignments.**
   `collectThisAssignedFieldsFromNode` enters nested functions/classes without
   distinguishing the owner of `this`. Review injector/call detection similarly.
   **Acceptance:** reproduce and prevent incorrect attribution; distinguish arrow
   functions with lexical `this` from functions/classes with separate contexts.
-  Executable TODO reproduction: `test/regressions.test.mjs` (nested scopes).
-  Promote it to an ordinary test when implementing this fix.
+  Completed 2026-11-21 on `fix/this-assignment-scopes`; see
+  [Lexical this scope fix](../completed/2026-11-21-this-assignment-scopes.md).
+  Promoted the TODO and added strict/permissive and injector lookup/catalog
+  regressions. Preserves lexical arrows, class heritage, and computed keys.
+  `pnpm test`: 27 passing, 4 remaining TODO reproductions; types and lint pass.
 
 - [ ] **FIX-02 · P1 · Traverse local-class inheritance.**
   Local-class branches in `resolveMemberOrigins`, `resolveInheritedMemberCatalog`,
@@ -234,3 +237,4 @@ Do not use packaging as a side-effect-free check.
 | --- | --- | --- |
 | 2026-11-21 | Review complete; implementation pending | Source, fixture, manifest, and lockfile inspection; types and lint; temporary complexity checks. |
 | 2026-11-21 | TEST-01 completed | `pnpm test`: 23 passing, 5 TODO reproductions; types and lint pass; no runtime changes. |
+| 2026-11-21 | FIX-01 completed | Lexical `this` traversal for assignments and class injector calls; 27 passing tests, 4 TODO reproductions; types and lint pass. |

@@ -18,7 +18,7 @@ export interface ExtractSymbolsOptions {
 function collectThisAssignedFieldsFromNode(node: t.Node): MemberDeclaration[] {
   const found: MemberDeclaration[] = [];
 
-  function visit(current: t.Node): void {
+  visitThisScope(node, (current) => {
     if (t.isAssignmentExpression(current)) {
       if (
         current.operator === "=" &&
@@ -34,32 +34,14 @@ function collectThisAssignedFieldsFromNode(node: t.Node): MemberDeclaration[] {
         });
       }
     }
-
-    const keys = t.VISITOR_KEYS[current.type] ?? [];
-    for (const key of keys) {
-      const value = (current as unknown as Record<string, unknown>)[key];
-
-      if (Array.isArray(value)) {
-        for (const child of value) {
-          if (child && typeof child === "object" && "type" in child) {
-            visit(child as t.Node);
-          }
-        }
-        continue;
-      }
-
-      if (value && typeof value === "object" && "type" in value) {
-        visit(value as t.Node);
-      }
-    }
-  }
-
-  visit(node);
+  });
   return found;
 }
 
-function visitNode(node: t.Node, visitor: (current: t.Node) => void): void {
-  visitor(node);
+function visitNode(node: t.Node, visitor: (current: t.Node) => boolean | void): void {
+  if (visitor(node) === false) {
+    return;
+  }
   const keys = t.VISITOR_KEYS[node.type] ?? [];
   for (const key of keys) {
     const value = (node as unknown as Record<string, unknown>)[key];
@@ -77,6 +59,33 @@ function visitNode(node: t.Node, visitor: (current: t.Node) => void): void {
       visitNode(value as t.Node, visitor);
     }
   }
+}
+
+// Follow lexical this through arrows, but stop at functions and class bodies.
+// Heritage and computed keys are evaluated in the enclosing this context.
+function visitThisScope(node: t.Node, visitor: (current: t.Node) => void): void {
+  visitNode(node, (current) => {
+    if (t.isClass(current)) {
+      if (current.superClass) {
+        visitThisScope(current.superClass, visitor);
+      }
+      for (const element of current.body.body) {
+        if ("computed" in element && element.computed && "key" in element) {
+          visitThisScope(element.key, visitor);
+        }
+      }
+      return false;
+    }
+
+    if (t.isFunction(current) && !t.isArrowFunctionExpression(current)) {
+      if (t.isObjectMethod(current) && current.computed) {
+        visitThisScope(current.key, visitor);
+      }
+      return false;
+    }
+
+    visitor(current);
+  });
 }
 
 function toProviderRefFromExpression(expression: t.Expression): ProviderRef | null {
@@ -103,7 +112,7 @@ function collectClassInjectorCalls(classNode: t.Class): ProviderRef[] {
       continue;
     }
 
-    visitNode(element.body, (current) => {
+    visitThisScope(element.body, (current) => {
       if (!t.isCallExpression(current)) {
         return;
       }

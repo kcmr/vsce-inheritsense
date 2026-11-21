@@ -14,8 +14,9 @@ its version, and no VS Code extension host is required.
   cycles, missing members, and missing files.
 - `import-resolver.test.mjs`: relative files, extensions, directory indexes,
   package entry points, and missing paths.
-- `regressions.test.mjs`: executable TODO reproductions linked to FIX-01 through
-  FIX-03 in the [quality register](../docs/exec-plans/backlog/2026-11-21-quality-and-public-release.md).
+- `regressions.test.mjs`: enforced FIX-01 coverage for lexical `this` assignment
+  scopes and injector calls (lookup/catalog), plus executable TODO reproductions
+  for FIX-02 and FIX-03 in the [quality register](../docs/exec-plans/backlog/2026-11-21-quality-and-public-release.md).
 
 TODO tests run assertions for the intended behavior and currently fail as
 expected. Node reports them separately and excludes them from the passing test
@@ -34,6 +35,9 @@ composition examples distinct from resolver tests: static analysis may intention
 accept module graphs that cannot execute, such as cyclic class inheritance.
 
 For a focused run after compilation, use
-`node --test test/parser.test.mjs` (or another test file). For the baseline
-without known-failure reports, run
+`node --test test/parser.test.mjs` (or another test file). For the original baseline
+without regression tests or known-failure reports, run
 `node --test test/parser.test.mjs test/resolver.test.mjs test/import-resolver.test.mjs`.
+
+For enforced scope regressions after compilation, run
+`node --test --test-name-pattern="FIX-01" test/regressions.test.mjs`.
