@@ -47,7 +47,12 @@ Move the whole register only when its entire scope is being undertaken.
 4. Once the full scope is complete, set status to `Completed` and move the plan
    from `active/` to `completed/` in the same change. Repair links affected by
    the move and update any source backlog entries.
-5. In the final response, link to the plan and summarize results and limitations.
+5. Follow [review and commit](review-and-commit.md): perform one critical
+   self-review, prepare a Conventional Commit message, and hand off for manual
+   review. Create the commit only after explicit user approval.
+
+A completed plan records implementation and verification; it does not imply
+approval to commit, merge, or publish.
 
 If work is cancelled, move the plan to `backlog/` with status `Cancelled` and a
 brief reason; do not describe it as completed.

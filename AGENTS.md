@@ -27,6 +27,8 @@
 - Keep plans current during work. Move a plan to `completed/` only when its full
   scope is finished and verified; completing one checklist item is not enough.
 - Turn recurring mistakes into a focused instruction, test, or tooling check.
+- Finish each change with [one critical self-review and a proposed commit](docs/agent-harness/review-and-commit.md).
+  Wait for the user's manual review and explicit approval before committing.
 
 ## Verification
 
