@@ -1,26 +1,10 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as vscode from "vscode";
-import { isPermissiveMethodAssignedFieldsEnabled } from "../config/settings";
+import { JS_SELECTOR, isSupportedJsFile, symbolAtPosition } from "../integration/javaScript";
+import { documentResolutionInput } from "../integration/resolution";
+import { workspaceRelativePath } from "../integration/workspacePaths";
 import { resolveMemberOrigins } from "../resolver/memberResolver";
 import { appendFormattedJsDoc, getOriginJsDoc } from "./jsDoc";
-
-const JS_SELECTOR: vscode.DocumentSelector = [
-  { language: "javascript", scheme: "file" }
-];
-
-function isSupportedJsFile(fileName: string): boolean {
-  return fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs");
-}
-
-function toRelativePath(filePath: string): string {
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(filePath));
-  if (!workspaceFolder) {
-    return filePath;
-  }
-
-  return path.relative(workspaceFolder.uri.fsPath, filePath) || filePath;
-}
 
 function getOriginLineSnippet(
   filePath: string,
@@ -61,7 +45,7 @@ function createHoverMarkdown(symbol: string, origins: ReturnType<typeof resolveM
   for (const origin of origins) {
     markdown.appendMarkdown(
       `- \`${origin.memberName}\` (${origin.kind}) - **${origin.ownerName}** [${origin.confidence}]\\
-${toRelativePath(origin.filePath)}:${origin.line}${origin.notes ? ` - ${origin.notes}` : ""}\n`
+${workspaceRelativePath(origin.filePath)}:${origin.line}${origin.notes ? ` - ${origin.notes}` : ""}\n`
     );
 
     const snippet = getOriginLineSnippet(origin.filePath, origin.line, fileCache);
@@ -87,31 +71,23 @@ export function registerMemberOriginHoverProvider(): vscode.Disposable {
         return undefined;
       }
 
-      const wordRange = document.getWordRangeAtPosition(position);
-      if (!wordRange) {
+      const selected = symbolAtPosition(document, position);
+      if (!selected) {
         return undefined;
       }
-
-      const symbol = document.getText(wordRange).trim();
-      if (!symbol) {
-        return undefined;
-      }
+      const { symbol, range } = selected;
 
       try {
         const origins = resolveMemberOrigins({
-          filePath: document.fileName,
-          sourceCode: document.getText(),
-          memberName: symbol,
-          line: position.line + 1,
-          includeCurrentClass: false,
-          includeMethodAssignedFields: isPermissiveMethodAssignedFieldsEnabled(document.uri)
+          ...documentResolutionInput(document, position, { includeCurrentClass: false }),
+          memberName: symbol
         });
 
         if (origins.length === 0) {
           return undefined;
         }
 
-        return new vscode.Hover(createHoverMarkdown(symbol, origins), wordRange);
+        return new vscode.Hover(createHoverMarkdown(symbol, origins), range);
       } catch {
         return undefined;
       }

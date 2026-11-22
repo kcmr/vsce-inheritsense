@@ -7,6 +7,20 @@
       "request": "launch",
       "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
       "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    },
+    {
+      "name": "Inspect InheritSense integration",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions",
+        "--disable-workspace-trust",
+        "${workspaceFolder}/test/fixtures/scenarios/static/integration/workspace/integration.code-workspace"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ]
     }
   ]
 }

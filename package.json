@@ -29,11 +29,13 @@
       "properties": {
         "inheritSense.completion.enableInheritedSuggestions": {
           "type": "boolean",
+          "scope": "resource",
           "default": true,
           "description": "Enable inherited member suggestions for 'this.' completions in JavaScript files."
         },
         "inheritSense.resolution.includeMethodAssignedFields": {
           "type": "boolean",
+          "scope": "resource",
           "default": false,
           "markdownDescription": "Permissive mode: treat assignments like `this.someField = ...` inside non-constructor methods as member declarations during origin/completion resolution. This can improve discovery for dynamic codebases, but may introduce less precise results."
         }

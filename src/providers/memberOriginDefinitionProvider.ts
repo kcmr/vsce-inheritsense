@@ -1,14 +1,7 @@
 import * as vscode from "vscode";
-import { isPermissiveMethodAssignedFieldsEnabled } from "../config/settings";
+import { JS_SELECTOR, isSupportedJsFile, symbolAtPosition } from "../integration/javaScript";
+import { documentResolutionInput } from "../integration/resolution";
 import { resolveMemberOrigins } from "../resolver/memberResolver";
-
-const JS_SELECTOR: vscode.DocumentSelector = [
-  { language: "javascript", scheme: "file" }
-];
-
-function isSupportedJsFile(fileName: string): boolean {
-  return fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs");
-}
 
 export function registerMemberOriginDefinitionProvider(): vscode.Disposable {
   return vscode.languages.registerDefinitionProvider(JS_SELECTOR, {
@@ -17,24 +10,16 @@ export function registerMemberOriginDefinitionProvider(): vscode.Disposable {
         return undefined;
       }
 
-      const wordRange = document.getWordRangeAtPosition(position);
-      if (!wordRange) {
+      const selected = symbolAtPosition(document, position);
+      if (!selected) {
         return undefined;
       }
-
-      const symbol = document.getText(wordRange).trim();
-      if (!symbol) {
-        return undefined;
-      }
+      const { symbol } = selected;
 
       try {
         const origins = resolveMemberOrigins({
-          filePath: document.fileName,
-          sourceCode: document.getText(),
-          memberName: symbol,
-          line: position.line + 1,
-          includeCurrentClass: false,
-          includeMethodAssignedFields: isPermissiveMethodAssignedFieldsEnabled(document.uri)
+          ...documentResolutionInput(document, position, { includeCurrentClass: false }),
+          memberName: symbol
         });
 
         if (origins.length === 0) {

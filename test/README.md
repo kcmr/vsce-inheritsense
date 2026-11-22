@@ -1,11 +1,11 @@
-# Parser and resolver tests
+# Tests and extension-host checks
 
 Run `pnpm test` with the project's supported Node version and installed
 dependencies. The command compiles current TypeScript sources into `dist/`, then
 runs Node's built-in test runner. It does not package the extension or increment
 its version, and no VS Code extension host is required.
 
-## Coverage
+## Node coverage
 
 - `extraction.test.mjs`: shared class/factory extraction across eight expression
   forms in strict/permissive modes, member kinds and literal keys, source metadata,
@@ -18,6 +18,11 @@ its version, and no VS Code extension host is required.
 - `traversal.test.mjs`: shared lookup/catalog contracts for ordering, origin
   metadata, strict/permissive modes, multiple root providers, shadowed origins,
   deduplication, and lazy lookup termination before malformed later branches.
+- `integration.test.mjs`: provider registration contracts, cursor symbols, resource
+  settings, inherited/local policies, completion source repair, trace selection
+  and navigation, and multi-root/external paths. Only the VS Code API boundary is
+  doubled; parser/resolver code is real. The synchronous module hook requires the
+  supported Node 24+ runtime and is isolated to this test file's worker.
 - `import-resolver.test.mjs`: relative files, extensions, directory indexes,
   package entry points, and missing paths.
 - `regressions.test.mjs`: enforced FIX-01 lexical `this` scopes and injector calls;
@@ -42,9 +47,10 @@ The JSDoc suite checks comment extraction and exact Markdown append calls agains
 golden results captured from the original hover implementation. It covers summary
 escaping boundaries, multiline tags, supported tags, and missing/ordinary comments.
 
-These tests cover the shared resolution APIs and isolated JSDoc helpers, not VS Code
-provider registration, cursor-context detection, cancellation, or extension-host UX.
-Add extension-host integration tests when changing those behaviors. Keep runtime
+The Node integration suite exercises provider callbacks against a VS Code API
+boundary double. It does not establish real extension-host registration, editor
+behavior, or UI correctness. Use the [extension-host suite](#extension-host-suite)
+when changing integration behavior. Keep runtime
 composition examples distinct from resolver tests: static analysis may intentionally
 accept module graphs that cannot execute, such as cyclic class inheritance.
 
@@ -143,3 +149,50 @@ Native JavaScript navigation or completion can contribute additional results.
 Check the InheritSense owner/location or trace result when comparing expectations.
 The Node suite verifies resolver outcomes; visual debug-host checks are separate
 and must be recorded explicitly in the execution plan.
+
+## Extension-host suite
+
+### Manual verification
+
+1. Run `pnpm test` to compile the current extension and verify the Node suite.
+2. Choose **Inspect InheritSense integration** in Run and Debug and press F5.
+   It opens [integration.code-workspace](fixtures/scenarios/static/integration/workspace/integration.code-workspace)
+   with two folders and stays open for inspection. It does not run automated tests.
+3. Check the scenarios below and report the observed results for the active plan.
+
+The workspace sets strict mode globally and permissive mode only in `second`.
+Both extension settings declare `resource` scope so folder overrides apply.
+The agent does not launch or manipulate the UI; the user performs these checks.
+
+- Trace `this.own` in `second/subject.js`: detail must be `subject.js:3`, with the
+  local-member note, rather than `../second/subject.js:3`.
+- Trace `this.execute` in that file: detail must be `root.js:3` from `Root` in `first`.
+- Trace `this.execute` in `second/external-subject.js`: detail must contain the
+  absolute path to `external/root.js:2`, because `external` is not a workspace folder.
+- Select a result and verify navigation. Open the picker again and press Esc:
+  it must close without changing the current file or cursor position.
+- Hover and completion should show the same origin paths. InheritSense omits
+  local members from hover and inherited completion. Its `dynamic` completion
+  appears in `second/subject.js` (permissive) and not in `first/subject.js` (strict).
+
+### Automated host coverage for maintainers
+
+`test/extension-host/index.cjs` remains a dependency-free entry for an automated
+VS Code test runner through `--extensionTestsPath`. It checks workspace-folder
+selection, resource settings, registered hover/definition/completion providers,
+external origins, and unsaved `this.` completion. Native JavaScript results may
+coexist; assertions identify InheritSense output. See VS Code's
+[testing guide](https://code.visualstudio.com/api/working-with-extensions/testing-extension)
+and [provider execution commands](https://code.visualstudio.com/api/references/commands).
+
+It is deliberately absent from `launch.json`: automatic test completion closes
+the host and is unsuitable for manual inspection. The manual workflow above does
+not require running this entry or reading its report.
+
+When invoked by an automated runner, results are persisted to
+`.test-results/ref04-extension-host.json`: status, completed checks, and the error
+stack on failure. The report is overwritten at startup and excluded from Git and
+extension packages. The suite briefly edits `second/subject.js` in memory and
+restores its original text in `finally`; it never saves the edit. No user workspace
+settings are changed. Report actual automated runs separately from manual results;
+passing the Node suite does not establish an automated host pass.

@@ -6,3 +6,4 @@ test/**
 tsconfig.json
 eslint.config.mjs
 docs/extension-overview.md
+.test-results/**

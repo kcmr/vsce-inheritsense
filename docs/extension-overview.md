@@ -82,6 +82,9 @@ Out of scope (still pending):
   - When enabled, assignments like `this.someField = ...` inside non-constructor methods are treated as field declarations for origin/completion resolution.
   - This improves discoverability in dynamic code, with a trade-off in strictness/precision.
 
+Both settings support workspace-folder overrides in multi-root workspaces through
+VS Code's `resource` configuration scope.
+
 ## 5. Architecture and modules
 
 - `src/commands/traceMemberOrigin.ts`
@@ -140,6 +143,10 @@ Out of scope (still pending):
 - `src/providers/memberOriginCompletionProvider.ts`
   - inherited completion suggestions on `this.`
 
+- `src/integration/`
+  - shared JavaScript selector/file checks, cursor symbol and document resolution
+    input, and per-origin workspace-relative paths (including external files)
+
 - `src/config/settings.ts`
   - typed accessors for extension settings
 
@@ -193,7 +200,7 @@ see [test instructions and coverage](../test/README.md). The five recorded
 correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
 there are no remaining TODO tests.
 
-1. Share VS Code integration helpers (REF-04 in the quality register).
+1. Review dependency and runtime compatibility (see the quality register).
 2. Add hover/definition/completion extension-host tests when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.

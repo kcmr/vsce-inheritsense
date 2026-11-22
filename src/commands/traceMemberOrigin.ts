@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { isPermissiveMethodAssignedFieldsEnabled } from "../config/settings";
+import { isSupportedJsFile, symbolAtPosition } from "../integration/javaScript";
+import { documentResolutionInput } from "../integration/resolution";
 import { resolveMemberOrigins } from "../resolver/memberResolver";
 import { showOriginQuickPick } from "../ui/quickPick";
 import { rangeForLine } from "../utils/range";
@@ -11,13 +12,7 @@ function getSelectedSymbol(editor: vscode.TextEditor): string | null {
     return text.length > 0 ? text : null;
   }
 
-  const wordRange = editor.document.getWordRangeAtPosition(selection.active);
-  if (!wordRange) {
-    return null;
-  }
-
-  const text = editor.document.getText(wordRange).trim();
-  return text.length > 0 ? text : null;
+  return symbolAtPosition(editor.document, selection.active)?.symbol ?? null;
 }
 
 export async function traceMemberOrigin(): Promise<void> {
@@ -28,7 +23,7 @@ export async function traceMemberOrigin(): Promise<void> {
   }
 
   const fileName = editor.document.fileName;
-  if (!(fileName.endsWith(".js") || fileName.endsWith(".mjs") || fileName.endsWith(".cjs"))) {
+  if (!isSupportedJsFile(fileName)) {
     vscode.window.showInformationMessage("InheritSense currently supports JavaScript files (.js, .mjs, .cjs).");
     return;
   }
@@ -39,17 +34,11 @@ export async function traceMemberOrigin(): Promise<void> {
     return;
   }
 
-  const line = editor.selection.active.line + 1;
-  const sourceCode = editor.document.getText();
-
   let origins;
   try {
     origins = resolveMemberOrigins({
-      filePath: fileName,
-      sourceCode,
-      memberName: symbol,
-      line,
-      includeMethodAssignedFields: isPermissiveMethodAssignedFieldsEnabled(editor.document.uri)
+      ...documentResolutionInput(editor.document, editor.selection.active),
+      memberName: symbol
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown parser error";

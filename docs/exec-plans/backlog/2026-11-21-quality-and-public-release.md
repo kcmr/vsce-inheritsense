@@ -143,12 +143,20 @@ and tooling. These priorities are not security-severity ratings.
 
   Metrics identify review candidates; they do not replace readability assessment.
 
-- [ ] **REF-04 · P2 · Share VS Code integration helpers.**
+- [x] **REF-04 · P2 · Share VS Code integration helpers.**
   Providers repeat JavaScript selectors, file-extension checks, and resolution
   setup. Hover and definition repeat symbol extraction. Three relative-path
   helpers exist; Quick Pick always uses the first workspace folder.
   **Acceptance:** share common behavior and resolve paths against the appropriate
   workspace root, including multi-root workspaces and external files.
+  Completed 2026-11-22 on `refactor/vscode-integration-helpers`; see the
+  [completed plan](../completed/2026-11-22-vscode-integration-helpers.md).
+  Shared helpers and 127 passing Node tests cover integration contracts. A real
+  host failure exposed missing resource scopes; both settings now support folder
+  overrides. Types, lint, and strict complexity pass. The user confirmed manual
+  multi-root/external paths, navigation/cancellation, hover/completion, and modes.
+  The automated host suite is retained but has no passing post-correction run;
+  manual host verification is recorded separately.
 
 ### Correctness, performance, and diagnostics
 
@@ -298,3 +306,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | REF-02 completed | Shared AST/member helpers and parser-only declarations; constructor inconsistency reproduced and fixed; 104 passing tests, no TODOs; types pass; new modules pass strict complexity checks; lint has 6 legacy warnings. |
 | 2026-11-22 | REF-03 completed | Focused parser/JSDoc helpers; 113 passing tests, no TODOs; types, lint, and strict source complexity pass with zero warnings. |
 | 2026-11-22 | TEST-02 completed | Shared on-disk scenarios and debug walkthrough; 104 passing tests, no TODOs; types/lint/complexity checks pass; user confirmed expected debug-mode results. |
+| 2026-11-22 | REF-04 completed | Shared VS Code integration helpers and per-origin paths; resource setting scopes; 127 passing Node tests; types/lint/complexity pass; user confirmed manual real-host checks. Automated host suite retained without a passing post-correction run. |

@@ -1,0 +1,10 @@
+{
+  "folders": [
+    { "path": "first" },
+    { "path": "second" }
+  ],
+  "settings": {
+    "inheritSense.completion.enableInheritedSuggestions": true,
+    "inheritSense.resolution.includeMethodAssignedFields": false
+  }
+}
