@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as t from "@babel/types";
 import type {
   ClassSymbol,
+  FileSymbols,
   MemberDeclaration,
   MemberOrigin,
   MemberKind,
@@ -61,188 +62,133 @@ function findClassAtLine(classes: ClassSymbol[], line: number): ClassSymbol | nu
   return containing[0] ?? null;
 }
 
-function findMember(classSymbol: ClassSymbol, memberName: string): MemberDeclaration | null {
-  return classSymbol.members.find((member) => member.name === memberName) ?? null;
+type TraversalKind = "provider" | "injector";
+
+interface TraversalContext extends ResolverBehaviorOptions {
+  visited: Set<string>;
+  // Lookup keeps the existing initializer extraction fallback until REF-02.
+  memberName?: string;
 }
 
-function findInjectedMemberInFile(
+function* memberOrigins(
+  members: MemberDeclaration[],
+  ownerName: string,
   filePath: string,
-  injector: ProviderRef,
-  memberName: string,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin | null {
+  confidence: MemberOrigin["confidence"],
+  notes?: string
+): Generator<MemberOrigin> {
+  for (const member of members) {
+    yield toOrigin(member, ownerName, filePath, confidence, notes);
+  }
+}
+
+function* traverseExportedMembers(
+  filePath: string,
+  provider: ProviderRef,
+  kind: TraversalKind,
+  context: TraversalContext
+): Generator<MemberOrigin> {
   if (!fs.existsSync(filePath)) {
-    return null;
+    return;
   }
-
-  const exportKey = providerVisitKey(filePath, injector, "injector-export");
-  if (visited.has(exportKey)) {
-    return null;
+  const visitKey = providerVisitKey(filePath, provider, kind === "injector" ? "injector-export" : "export");
+  if (context.visited.has(visitKey)) {
+    return;
   }
-  visited.add(exportKey);
+  context.visited.add(visitKey);
 
-  const sourceCode = fs.readFileSync(filePath, "utf8");
-  const symbols = extractFileSymbols(sourceCode, filePath, {
-    includeMethodAssignedFields: options?.includeMethodAssignedFields
+  const symbols = extractFileSymbols(fs.readFileSync(filePath, "utf8"), filePath, {
+    includeMethodAssignedFields: context.includeMethodAssignedFields
   });
-
-  const target = resolveExportBinding(symbols, injector);
+  const target = resolveExportBinding(symbols, provider);
   if (!target) {
-    return null;
+    return;
   }
   if (target.source !== undefined) {
     const resolved = resolveImportPath(filePath, target.source);
-    return resolved ? findInjectedMemberInFile(resolved, target.provider, memberName, visited, options) : null;
+    if (resolved) {
+      yield* traverseExportedMembers(resolved, target.provider, kind, context);
+    }
+    return;
   }
-  return findInjectedMemberInSymbols(symbols, filePath, target.provider, memberName, visited, options);
+  yield* traverseMembersInSymbols(symbols, filePath, target.provider, kind, context);
 }
 
-function findInjectedMemberInSymbols(
-  symbols: ReturnType<typeof extractFileSymbols>,
+function* traverseImportedMembers(
+  symbols: FileSymbols,
   filePath: string,
-  injector: ProviderRef,
-  memberName: string,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin | null {
-  const visitKey = providerVisitKey(filePath, injector, "injector");
-  if (visited.has(visitKey)) {
-    return null;
-  }
-  visited.add(visitKey);
-
-  const injectorMembers = (injector.importLookupName === undefined ? symbols.injectors.get(injector.localName) : undefined) ?? [];
-  const injectedMember = injectorMembers.find((member) => member.name === memberName);
-  if (injectedMember) {
-    return toOrigin(injectedMember, injector.localName, filePath, "medium", "runtime injector call");
-  }
-
-  const target = resolveImportedProvider(symbols, filePath, injector);
-  return target ? findInjectedMemberInFile(target.filePath, target.provider, memberName, visited, options) : null;
-}
-
-function collectInjectedMembersInFile(
-  filePath: string,
-  injector: ProviderRef,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin[] {
-  if (!fs.existsSync(filePath)) {
-    return [];
-  }
-
-  const exportKey = providerVisitKey(filePath, injector, "injector-export");
-  if (visited.has(exportKey)) {
-    return [];
-  }
-  visited.add(exportKey);
-
-  const sourceCode = fs.readFileSync(filePath, "utf8");
-  const symbols = extractFileSymbols(sourceCode, filePath, {
-    includeMethodAssignedFields: options?.includeMethodAssignedFields
-  });
-
-  const target = resolveExportBinding(symbols, injector);
-  if (!target) {
-    return [];
-  }
-  if (target.source !== undefined) {
-    const resolved = resolveImportPath(filePath, target.source);
-    return resolved ? collectInjectedMembersInFile(resolved, target.provider, visited, options) : [];
-  }
-  return collectInjectedMembersInSymbols(symbols, filePath, target.provider, visited, options);
-}
-
-function collectInjectedMembersInSymbols(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  filePath: string,
-  injector: ProviderRef,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin[] {
-  const visitKey = providerVisitKey(filePath, injector, "injector");
-  if (visited.has(visitKey)) {
-    return [];
-  }
-  visited.add(visitKey);
-
-  const collected = ((injector.importLookupName === undefined ? symbols.injectors.get(injector.localName) : undefined) ?? [])
-    .map((member) => toOrigin(member, injector.localName, filePath, "medium", "runtime injector call"));
-
-  const target = resolveImportedProvider(symbols, filePath, injector);
+  provider: ProviderRef,
+  kind: TraversalKind,
+  context: TraversalContext
+): Generator<MemberOrigin> {
+  const target = resolveImportedProvider(symbols, filePath, provider);
   if (target) {
-    collected.push(...collectInjectedMembersInFile(target.filePath, target.provider, visited, options));
+    yield* traverseExportedMembers(target.filePath, target.provider, kind, context);
   }
-  return collected;
 }
 
-function findInjectedMemberFromClassInjectors(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  ownerFilePath: string,
-  classSymbol: ClassSymbol,
-  memberName: string,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin | null {
-  for (const injector of classSymbol.injectorCalls) {
-    const origin = findInjectedMemberInSymbols(symbols, ownerFilePath, injector, memberName, visited, options);
-    if (origin) {
-      return origin;
-    }
+function* traverseMembersInSymbols(
+  symbols: FileSymbols,
+  filePath: string,
+  provider: ProviderRef,
+  kind: TraversalKind,
+  context: TraversalContext
+): Generator<MemberOrigin> {
+  const visitKey = providerVisitKey(filePath, provider, kind === "injector" ? "injector" : "local");
+  if (context.visited.has(visitKey)) {
+    return;
   }
+  context.visited.add(visitKey);
 
-  return null;
+  if (kind === "injector") {
+    const members = (provider.importLookupName === undefined ? symbols.injectors.get(provider.localName) : undefined) ?? [];
+    yield* memberOrigins(members, provider.localName, filePath, "medium", "runtime injector call");
+  } else {
+    yield* traverseProviderMembers(symbols, filePath, provider, context);
+  }
+  yield* traverseImportedMembers(symbols, filePath, provider, kind, context);
 }
 
-function collectInjectedMembersFromClassInjectors(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  ownerFilePath: string,
-  classSymbol: ClassSymbol,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin[] {
-  const collected: MemberOrigin[] = [];
-
-  for (const injector of classSymbol.injectorCalls) {
-    collected.push(...collectInjectedMembersInSymbols(symbols, ownerFilePath, injector, visited, options));
-  }
-
-  return collected;
-}
-
-function findMemberFromProviders(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  ownerFilePath: string,
+function* traverseProviders(
+  symbols: FileSymbols,
+  filePath: string,
   providers: ProviderRef[],
-  memberName: string,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin | null {
-  for (const nestedProvider of providers) {
-    const origin = findProviderMemberInSymbols(symbols, ownerFilePath, nestedProvider, memberName, visited, options);
-    if (origin) {
-      return origin;
-    }
+  context: TraversalContext
+): Generator<MemberOrigin> {
+  for (const provider of providers) {
+    yield* traverseMembersInSymbols(symbols, filePath, provider, "provider", context);
   }
-
-  return null;
 }
 
-function collectMembersFromProviders(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  ownerFilePath: string,
-  providers: ProviderRef[],
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin[] {
-  const collected: MemberOrigin[] = [];
-
-  for (const nestedProvider of providers) {
-    collected.push(...collectProviderMembersInSymbols(symbols, ownerFilePath, nestedProvider, visited, options));
+function* traverseProviderMembers(
+  symbols: FileSymbols,
+  filePath: string,
+  provider: ProviderRef,
+  context: TraversalContext
+): Generator<MemberOrigin> {
+  if (provider.importLookupName !== undefined) {
+    return;
+  }
+  const providerClass = symbols.classes.find((candidate) => candidate.name === provider.localName);
+  if (providerClass) {
+    yield* memberOrigins(providerClass.members, providerClass.name, filePath, "high", provider.notes);
+    for (const injector of providerClass.injectorCalls) {
+      yield* traverseMembersInSymbols(symbols, filePath, injector, "injector", context);
+    }
+    yield* traverseProviders(symbols, filePath, resolveProvidersFromSuperClass(providerClass.superClass), context);
   }
 
-  return collected;
+  const initializer = symbols.exportedInitializers.get(provider.localName);
+  if (initializer) {
+    // Catalog extraction intentionally remains parser-based; REF-02 owns parity.
+    if (context.memberName !== undefined) {
+      const origin = findMemberFromExportedInitializer(initializer, provider.localName, context.memberName, filePath);
+      if (origin) {
+        yield origin;
+      }
+    }
+    yield* traverseProviders(symbols, filePath, resolveProvidersFromExpression(initializer), context);
+  }
 }
 
 function findClassFromExpression(expression: t.Node | null | undefined): t.Class | null {
@@ -336,210 +282,6 @@ function findMemberFromExportedInitializer(
   return null;
 }
 
-function findProviderMemberInFile(
-  filePath: string,
-  provider: ProviderRef,
-  memberName: string,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin | null {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-
-  const visitKey = providerVisitKey(filePath, provider, "export");
-  if (visited.has(visitKey)) {
-    return null;
-  }
-
-  visited.add(visitKey);
-
-  const sourceCode = fs.readFileSync(filePath, "utf8");
-  const symbols = extractFileSymbols(sourceCode, filePath, {
-    includeMethodAssignedFields: options?.includeMethodAssignedFields
-  });
-
-  const target = resolveExportBinding(symbols, provider);
-  if (!target) {
-    return null;
-  }
-  if (target.source !== undefined) {
-    const resolved = resolveImportPath(filePath, target.source);
-    return resolved ? findProviderMemberInFile(resolved, target.provider, memberName, visited, options) : null;
-  }
-  return findProviderMemberInSymbols(symbols, filePath, target.provider, memberName, visited, options);
-}
-
-function findProviderMemberInSymbols(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  filePath: string,
-  provider: ProviderRef,
-  memberName: string,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin | null {
-  const visitKey = providerVisitKey(filePath, provider);
-  if (visited.has(visitKey)) {
-    return null;
-  }
-  visited.add(visitKey);
-
-  const providerClass = provider.importLookupName === undefined
-    ? symbols.classes.find((candidate) => candidate.name === provider.localName) : undefined;
-  if (providerClass) {
-    const member = findMember(providerClass, memberName);
-    if (member) {
-      return toOrigin(member, providerClass.name, filePath, "high", provider.notes);
-    }
-
-    const injectedMember = findInjectedMemberFromClassInjectors(
-      symbols,
-      filePath,
-      providerClass,
-      memberName,
-      visited,
-      options
-    );
-    if (injectedMember) {
-      return injectedMember;
-    }
-
-    const nestedFound = findMemberFromProviders(
-      symbols,
-      filePath,
-      resolveProvidersFromSuperClass(providerClass.superClass),
-      memberName,
-      visited,
-      options
-    );
-    if (nestedFound) {
-      return nestedFound;
-    }
-  }
-
-  const exportedInitializer = provider.importLookupName === undefined
-    ? symbols.exportedInitializers.get(provider.localName) : undefined;
-  if (exportedInitializer) {
-    const exportedResult = findMemberFromExportedInitializer(
-      exportedInitializer,
-      provider.localName,
-      memberName,
-      filePath
-    );
-    if (exportedResult) {
-      return exportedResult;
-    }
-
-    const nestedFound = findMemberFromProviders(
-      symbols,
-      filePath,
-      resolveProvidersFromExpression(exportedInitializer),
-      memberName,
-      visited,
-      options
-    );
-    if (nestedFound) {
-      return nestedFound;
-    }
-  }
-
-  const target = resolveImportedProvider(symbols, filePath, provider);
-  return target ? findProviderMemberInFile(target.filePath, target.provider, memberName, visited, options) : null;
-}
-
-function collectProviderMembersInFile(
-  filePath: string,
-  provider: ProviderRef,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin[] {
-  if (!fs.existsSync(filePath)) {
-    return [];
-  }
-
-  const visitKey = providerVisitKey(filePath, provider, "export");
-  if (visited.has(visitKey)) {
-    return [];
-  }
-
-  visited.add(visitKey);
-
-  const sourceCode = fs.readFileSync(filePath, "utf8");
-  const symbols = extractFileSymbols(sourceCode, filePath, {
-    includeMethodAssignedFields: options?.includeMethodAssignedFields
-  });
-  const target = resolveExportBinding(symbols, provider);
-  if (!target) {
-    return [];
-  }
-  if (target.source !== undefined) {
-    const resolved = resolveImportPath(filePath, target.source);
-    return resolved ? collectProviderMembersInFile(resolved, target.provider, visited, options) : [];
-  }
-  return collectProviderMembersInSymbols(symbols, filePath, target.provider, visited, options);
-}
-
-function collectProviderMembersInSymbols(
-  symbols: ReturnType<typeof extractFileSymbols>,
-  filePath: string,
-  provider: ProviderRef,
-  visited: Set<string>,
-  options?: ResolverBehaviorOptions
-): MemberOrigin[] {
-  const visitKey = providerVisitKey(filePath, provider);
-  if (visited.has(visitKey)) {
-    return [];
-  }
-  visited.add(visitKey);
-
-  const collected: MemberOrigin[] = [];
-
-  const providerClass = provider.importLookupName === undefined
-    ? symbols.classes.find((candidate) => candidate.name === provider.localName) : undefined;
-  if (providerClass) {
-    for (const member of providerClass.members) {
-      collected.push(toOrigin(member, providerClass.name, filePath, "high", provider.notes));
-    }
-
-    const injectedCollected = collectInjectedMembersFromClassInjectors(
-      symbols,
-      filePath,
-      providerClass,
-      visited,
-      options
-    );
-    collected.push(...injectedCollected);
-
-    const nestedCollected = collectMembersFromProviders(
-      symbols,
-      filePath,
-      resolveProvidersFromSuperClass(providerClass.superClass),
-      visited,
-      options
-    );
-    collected.push(...nestedCollected);
-  }
-
-  const exportedInitializer = provider.importLookupName === undefined
-    ? symbols.exportedInitializers.get(provider.localName) : undefined;
-  if (exportedInitializer) {
-    const nestedCollected = collectMembersFromProviders(
-      symbols,
-      filePath,
-      resolveProvidersFromExpression(exportedInitializer),
-      visited,
-      options
-    );
-    collected.push(...nestedCollected);
-  }
-
-  const target = resolveImportedProvider(symbols, filePath, provider);
-  if (target) {
-    collected.push(...collectProviderMembersInFile(target.filePath, target.provider, visited, options));
-  }
-  return collected;
-}
-
 function dedupeOrigins(origins: MemberOrigin[]): MemberOrigin[] {
   const dedupKey = (origin: MemberOrigin): string =>
     `${origin.filePath}:${origin.line}:${origin.memberName}:${origin.ownerName}:${origin.kind}`;
@@ -555,62 +297,56 @@ function dedupeOrigins(origins: MemberOrigin[]): MemberOrigin[] {
   });
 }
 
-export function resolveInheritedMemberCatalog(input: ResolveCatalogInput): MemberOrigin[] {
-  const includeCurrentClass = input.includeCurrentClass ?? false;
+// Consuming only the first match closes the generator before later branches read
+// or parse files. Catalogs exhaust the same traversal and retain shadowed origins.
+function selectOrigins(origins: Iterable<MemberOrigin>, memberName?: string): MemberOrigin[] {
+  if (memberName === undefined) {
+    return Array.from(origins);
+  }
+  for (const origin of origins) {
+    if (origin.memberName === memberName) {
+      return [origin];
+    }
+  }
+  return [];
+}
+
+function resolveOrigins(input: ResolveCatalogInput, memberName?: string): MemberOrigin[] {
+  const includeCurrentClass = input.includeCurrentClass ?? (memberName !== undefined);
   const symbols = extractFileSymbols(input.sourceCode, input.filePath, {
     includeMethodAssignedFields: input.includeMethodAssignedFields
   });
   const currentClass = findClassAtLine(symbols.classes, input.line);
-
   if (!currentClass) {
     return [];
   }
 
   const origins: MemberOrigin[] = [];
   if (includeCurrentClass) {
-    for (const member of currentClass.members) {
-      origins.push(toOrigin(member, currentClass.name, input.filePath, "high", "member in current class"));
-    }
-  }
-
-  const providers = resolveProvidersFromSuperClass(currentClass.superClass);
-  for (const provider of providers) {
-    origins.push(...collectProviderMembersInSymbols(
-      symbols, input.filePath, provider, new Set([providerVisitKey(input.filePath, { localName: currentClass.name })]),
-      { includeMethodAssignedFields: input.includeMethodAssignedFields }
+    origins.push(...selectOrigins(
+      memberOrigins(currentClass.members, currentClass.name, input.filePath, "high", "member in current class"),
+      memberName
     ));
   }
 
+  for (const provider of resolveProvidersFromSuperClass(currentClass.superClass)) {
+    // Each root provider has its own search, preserving multiple composition origins.
+    const context: TraversalContext = {
+      visited: new Set([providerVisitKey(input.filePath, { localName: currentClass.name })]),
+      includeMethodAssignedFields: input.includeMethodAssignedFields,
+      memberName
+    };
+    origins.push(...selectOrigins(
+      traverseMembersInSymbols(symbols, input.filePath, provider, "provider", context), memberName
+    ));
+  }
   return dedupeOrigins(origins);
 }
 
+export function resolveInheritedMemberCatalog(input: ResolveCatalogInput): MemberOrigin[] {
+  return resolveOrigins(input);
+}
+
 export function resolveMemberOrigins(input: ResolveInput): MemberOrigin[] {
-  const includeCurrentClass = input.includeCurrentClass ?? true;
-  const symbols = extractFileSymbols(input.sourceCode, input.filePath, {
-    includeMethodAssignedFields: input.includeMethodAssignedFields
-  });
-  const currentClass = findClassAtLine(symbols.classes, input.line);
-
-  if (!currentClass) {
-    return [];
-  }
-
-  const origins: MemberOrigin[] = [];
-  const localMember = findMember(currentClass, input.memberName);
-  if (localMember && includeCurrentClass) {
-    origins.push(toOrigin(localMember, currentClass.name, input.filePath, "high", "member in current class"));
-  }
-
-  const providers = resolveProvidersFromSuperClass(currentClass.superClass);
-  for (const provider of providers) {
-    const origin = findProviderMemberInSymbols(
-      symbols, input.filePath, provider, input.memberName, new Set([providerVisitKey(input.filePath, { localName: currentClass.name })]),
-      { includeMethodAssignedFields: input.includeMethodAssignedFields }
-    );
-    if (origin) {
-      origins.push(origin);
-    }
-  }
-
-  return dedupeOrigins(origins);
+  return resolveOrigins(input, input.memberName);
 }

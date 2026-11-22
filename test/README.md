@@ -12,6 +12,9 @@ its version, and no VS Code extension host is required.
 - `resolver.test.mjs`: individual lookup and completion catalogs, origin metadata,
   local-member inclusion, nested composition, imported injectors, reexports,
   cycles, missing members, and missing files.
+- `traversal.test.mjs`: shared lookup/catalog contracts for ordering, origin
+  metadata, strict/permissive modes, multiple root providers, shadowed origins,
+  deduplication, and lazy lookup termination before malformed later branches.
 - `import-resolver.test.mjs`: relative files, extensions, directory indexes,
   package entry points, and missing paths.
 - `regressions.test.mjs`: enforced FIX-01 lexical `this` scopes and injector calls;
@@ -51,3 +54,6 @@ For local-inheritance regressions after compilation, run
 
 For module-identity coverage after compilation, run
 `node --test test/module-identities.test.mjs`.
+
+For resolver traversal contracts after compilation, run
+`node --test test/traversal.test.mjs`.

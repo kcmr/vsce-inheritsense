@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 and FIX-01 through FIX-03 completed; remaining tasks pending.
+Status: Backlog. TEST-01, FIX-01 through FIX-03, and REF-01 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -79,11 +79,19 @@ and tooling. These priorities are not security-severity ratings.
 
 ### Duplication and complexity
 
-- [ ] **REF-01 · P2 · Share resolver traversal logic.**
+- [x] **REF-01 · P2 · Share resolver traversal logic.**
   `src/resolver/memberResolver.ts` has parallel `find…` and `collect…` families
   for file/class injectors, providers, and imported members.
   **Acceptance:** share traversal while preserving early exit, precedence, and
   cycle detection; compare individual lookup and catalog behavior on shared cases.
+  Completed 2026-11-22 on `refactor/shared-resolver-traversal`; see
+  [Shared resolver traversal](../completed/2026-11-22-shared-resolver-traversal.md).
+  Lazy traversal now serves lookup and catalogs across providers, injectors,
+  imports, and reexports. Preserves lookup early exit per root provider, ordering,
+  shadowed catalog origins, identities, and cycle guards. Seven contract tests
+  passed before and after the refactor; `pnpm test`: 86 passing, no TODOs;
+  types pass; lint passes with 10 accepted complexity warnings. Initializer
+  extraction differences remain under REF-02.
 
 - [ ] **REF-02 · P2 · Consolidate AST helpers and member extraction.**
   `findClassFromExpression` is nearly duplicated between parser and resolver.
@@ -252,3 +260,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-21 | FIX-01 completed | Lexical `this` traversal for assignments and class injector calls; 27 passing tests, 4 TODO reproductions; types and lint pass. |
 | 2026-11-21 | FIX-02 completed | Recursive local-provider traversal; 38 passing tests, 2 FIX-03 TODO reproductions; types and lint pass. |
 | 2026-11-21 | FIX-03 completed | Separate import/export identities; alias/default/namespace provider and injector resolution; 79 passing tests, no TODOs; types and lint pass. |
+| 2026-11-22 | REF-01 completed | Shared lazy resolver traversal; seven contract tests pass before/after; 86 passing tests, no TODOs; types pass; lint has 10 accepted complexity warnings. |

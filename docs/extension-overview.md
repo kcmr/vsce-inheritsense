@@ -112,6 +112,9 @@ Out of scope (still pending):
 - `src/resolver/memberResolver.ts`
   - origin resolution for a specific member
   - inherited member catalog for completion
+  - shared lazy traversal through providers, injectors, imports, and reexports;
+    lookup stops at the first match within each root provider, while catalogs
+    retain all origins in traversal order
 
 - `src/providers/memberOriginHoverProvider.ts`
   - inherited origin hover UI
@@ -170,7 +173,7 @@ see [test instructions and coverage](../test/README.md). The five recorded
 correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
 there are no remaining TODO tests.
 
-1. Consolidate resolver traversal and AST extraction with behavior coverage.
+1. Consolidate AST helpers and member extraction with behavior coverage.
 2. Add hover/definition/completion extension-host tests when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.
