@@ -8,7 +8,7 @@ class, factory, or injector supplies the member and where it is defined.
 
 ## Screenshots
 
-![Hover and Go to Definition](./images/vsce-inheritsense-3.gif)
+![Hover and Go to Definition](./images/vsce-inheritsense-3.gif)   
 ![Completion](./images/vsce-inheritsense-completion.png)
 
 ## Features
@@ -45,9 +45,10 @@ code --install-extension kuscamara.inheritsense
 
 ### From a VSIX
 
-Clone the repository and build a `.vsix` package locally.
+Download the `.vsix` attached to the
+[latest GitHub release](https://github.com/kcmr/vsce-inheritsense/releases/latest).
 Then choose **Install from VSIX...** in the VS Code Extensions view and select
-that file.
+the downloaded file.
 
 ## Usage
 
