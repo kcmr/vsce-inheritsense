@@ -47,7 +47,7 @@
   TODO reproductions separately from passing tests; promote them when fixing bugs.
 - Keep test source scenarios in `test/fixtures/` and read them from tests so they
   can also be opened for extension debugging; see [test instructions](test/README.md).
-- `pnpm compile` writes `dist/`. `pnpm package` also increments the package
-  version through `prepackage`; use it only for an intended packaging task.
+- `pnpm compile` writes `dist/`. `pnpm package` compiles and creates a VSIX
+  without incrementing the version. Release versions belong to semantic-release.
 - Report checks run, outcomes, and material limitations. Documentation-only work
   needs link/content checks, not a build.

@@ -2,7 +2,7 @@
   "name": "inheritsense",
   "displayName": "InheritSense",
   "description": "Trace JavaScript member origins across class factories and mixins.",
-  "version": "0.0.16",
+  "version": "0.0.0",
   "publisher": "kuscamara",
   "author": "Kus Cámara",
   "license": "MIT",
@@ -88,9 +88,15 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint .",
     "test": "tsc -p ./ && node --test test/*.test.mjs",
-    "prepackage": "npm version patch --no-git-tag-version && npm run compile && npm run lint",
+    "build": "pnpm compile && esbuild src/extension.ts --bundle --minify --platform=node --format=cjs --target=node20 --outfile=dist/extension.js --external:vscode",
+    "vscode:prepublish": "pnpm build",
     "package": "vsce package",
-    "check:types": "tsc --noEmit -p ."
+    "check:types": "tsc --noEmit -p .",
+    "release": "semantic-release",
+    "release:dry-run": "semantic-release --dry-run"
+  },
+  "vsce": {
+    "dependencies": false
   },
   "dependencies": {
     "@babel/parser": "^7.29.14",
@@ -98,11 +104,19 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.6",
+    "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/node": "^26.6.6",
     "@types/vscode": "1.95.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
+    "semantic-release": "^24.2.9",
+    "semantic-release-vsce": "^6.1.8",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.73.0",
-    "@vscode/vsce": "^4.1.1"
+    "typescript-eslint": "^8.73.0"
   }
 }

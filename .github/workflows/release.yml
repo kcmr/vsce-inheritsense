@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [Lint and test]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Simulate the release without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      PUBLISH_RELEASE: >-
+        ${{ vars.RELEASE_ENABLED == 'true' &&
+        (github.event_name != 'workflow_dispatch' || !inputs.dry_run) }}
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.21.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Check manually requested source
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          pnpm check:types
+          pnpm lint
+          pnpm test
+
+      - name: Simulate release
+        if: env.PUBLISH_RELEASE != 'true'
+        run: pnpm release:dry-run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Validate VSIX packaging
+        if: env.PUBLISH_RELEASE != 'true'
+        run: pnpm package --out "$RUNNER_TEMP/inheritsense-preview.vsix"
+
+      - name: Publish release
+        if: env.PUBLISH_RELEASE == 'true'
+        run: |
+          test -n "$GITHUB_TOKEN" || { echo '::error::Missing GitHub release token'; exit 1; }
+          test -n "$VSCE_PAT" || { echo '::error::Missing Marketplace publishing token'; exit 1; }
+          pnpm release
+        env:
+          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

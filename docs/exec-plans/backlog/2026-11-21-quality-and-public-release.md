@@ -369,10 +369,10 @@ FIXTURE-03 is excluded from the agreed scope.
 
 ### Check side effects
 
-Use no-emit type checking and lint for read-only verification. `compile` writes
-`dist/`; `package` runs `prepackage`, incrementing the version through
-`npm version patch --no-git-tag-version` before compilation and linting.
-Do not use packaging as a side-effect-free check.
+Use `pnpm check:types` and `pnpm lint` for read-only verification. `compile`
+writes `dist/`; `package` builds the extension bundle and creates a VSIX without
+incrementing the manifest version. Release version selection belongs to
+semantic-release. Packaging still writes artifacts and is not a read-only check.
 
 ## Decisions
 
