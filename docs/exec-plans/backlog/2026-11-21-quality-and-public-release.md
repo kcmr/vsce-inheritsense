@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, and DEP-04 through DEP-05 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, DEP-02, and DEP-04 through DEP-05 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -45,7 +45,7 @@ and tooling. These priorities are not security-severity ratings.
 ### Dependencies and compatibility
 
 - [ ] **DEP-01 · P2 · Review declared ranges and installed versions.**
-  Babel declares `^7.27.7`; the lockfile resolves parser, traverse, and types to
+  Babel parser and types declare `^7.27.7`; the lockfile resolves both to
   `7.29.14`. `typescript-eslint` declares `^8.18.0` and resolves to `8.73.0`.
   Separate minimum-range updates from installed-version updates. Check registry
   versions and peer requirements for Babel, ESLint, `@eslint/js`,
@@ -53,10 +53,16 @@ and tooling. These priorities are not security-severity ratings.
   **Acceptance:** justified versions, compatible peers, and a consistent lockfile;
   old minimum ranges alone are not evidence of outdated installed packages.
 
-- [ ] **DEP-02 · P2 · Remove or justify `@babel/traverse`.**
+- [x] **DEP-02 · P2 · Remove or justify `@babel/traverse`.**
   It is a production dependency without imports in `src`.
   **Acceptance:** remove it if unused, or justify adopting it for AST traversal;
   verify types, lint, and resolution behavior.
+  Completed 2026-11-22 on `chore/remove-unused-babel-traverse`; see the
+  [focused plan](../completed/2026-11-22-remove-unused-babel-traverse.md).
+  Removed the unused direct dependency and 11 unneeded transitive packages.
+  All 243 retained lockfile package/snapshot records are unchanged. Types,
+  139 tests (no TODOs), lint, strict source complexity, frozen offline installation,
+  and compiled parser loading pass. Node and remaining package versions stay unchanged.
 
 - [ ] **DEP-03 · P2 · Evaluate the TypeScript major upgrade.**
   The lockfile contains `6.0.3`. During the review, the
@@ -340,3 +346,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | DEP-04 completed; FIX-04 reproduced | Exact minimum API types and version guard; 128 development/116 embedded-runtime tests pass; user confirmed actual 1.95.0 operation. Native/extension duplicate target ranges reproduced and tracked separately. |
 | 2026-11-22 | FIX-04 completed | Precise opt-in declaration ranges and guarded native-provider coexistence; 139 development/122 minimum-runtime tests pass; types/lint/complexity pass; user confirmed current-editor navigation. Fresh minimum UI and automated host reruns deferred. |
 | 2026-11-22 | DEP-05 completed | Internal Node API/type audit; retain Node 26/types and >=24 development floor; 139 tests pass on isolated Node 24.0.0. Only execution-plan documentation changes; future API additions require renewed baseline verification. |
+| 2026-11-22 | DEP-02 completed | Removed unused @babel/traverse and 11 unneeded transitive packages; all remaining lock entries unchanged; 139 tests, types, lint, strict complexity, and frozen offline installation pass. |
