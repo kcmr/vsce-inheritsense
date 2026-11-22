@@ -43,7 +43,7 @@ documented scope decision.
 - `pnpm exec tsc --noEmit -p .`: passed against installed 1.95.0 types.
 - `pnpm test`: 128 passing, no TODOs.
 - `pnpm lint`: passed, zero warnings/errors.
-- `pnpm exec eslint src test/vscode-compatibility.test.mjs --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src test/vscode-compatibility.test.mjs`: passed.
 - Official 1.95.0 declarations and configuration schema confirm the production
   API groups and manifest resource scopes; see [policy evidence](../../vscode-compatibility.md).
 - `pnpm install --frozen-lockfile --ignore-scripts --offline`: passed; lockfile

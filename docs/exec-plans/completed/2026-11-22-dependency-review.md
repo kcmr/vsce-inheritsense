@@ -53,7 +53,7 @@ broader dependency audit is requested.
 - `pnpm exec tsc --noEmit -p .`: passed.
 - `pnpm test`: 139 passing, no TODOs/skips/failures.
 - `pnpm lint`: passed, zero warnings/errors.
-- `pnpm exec eslint src --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src`: passed.
 - Node remains 26.13.1. No production/test source, package version, engine, or
   verification infrastructure changes. No packaging or UI checks performed.
 - Closure checks: 20 local links resolve, `git diff --check` passes, and exactly

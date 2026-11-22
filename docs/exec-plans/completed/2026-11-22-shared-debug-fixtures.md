@@ -35,8 +35,8 @@ behavior changes, dependency updates, or legacy complexity cleanup (REF-03).
 - Baseline and migrated `pnpm test`: 104 passing, no failures or TODOs.
 - `pnpm exec tsc --noEmit -p .`: passed.
 - `pnpm lint`: passed with 6 unchanged legacy complexity warnings.
-- `pnpm exec eslint test/helpers.mjs test/*.test.mjs --rule 'complexity: [error, 15]'`: passed.
-- `pnpm exec eslint test/fixtures/scenarios/static --no-config-lookup --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `test/helpers.mjs test/*.test.mjs`: passed.
+- Explicit complexity audit (limit 15, error severity) of `test/fixtures/scenarios/static` with isolated configuration: passed.
 - Complexity checks also pass for the valid files in malformed graphs, excluding
   only deliberately unparseable `broken.js` and `invalid.js`.
 - Migration audit: 87 scenarios, 240 files; 233 preserve source apart from trailing

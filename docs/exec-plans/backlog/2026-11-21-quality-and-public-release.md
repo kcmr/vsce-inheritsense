@@ -360,7 +360,7 @@ FIXTURE-03 is excluded from the agreed scope.
 
 - `./node_modules/.bin/tsc --noEmit -p .`: passed.
 - `./node_modules/.bin/eslint .`: passed.
-- `./node_modules/.bin/eslint src --rule 'complexity: [warn, 15]' --rule 'max-depth: [warn, 4]'`:
+- Explicit source audit (complexity limit 15 and nesting depth limit 4, warning severity):
   19 warnings, no errors; rules applied only for this command.
 - Automated tests: unavailable.
 - Manual extension-host checks: not performed during the review.

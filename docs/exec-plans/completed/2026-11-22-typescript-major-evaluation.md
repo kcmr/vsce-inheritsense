@@ -36,7 +36,7 @@ Selected-version checks on 2026-11-22:
 - `pnpm exec tsc --noEmit -p .`: passed without deprecation diagnostics.
 - `pnpm test`: 139 passing, zero failures/skips/TODOs.
 - `pnpm lint`: passed, zero warnings/errors.
-- `pnpm exec eslint src --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src`: passed.
 - `pnpm install --frozen-lockfile --ignore-scripts --strict-peer-dependencies
   --offline`: failed with `ERR_PNPM_NO_OFFLINE_TARBALL` for
   `@azure/logger@1.4.0` in the sandbox-local store. This is a cache limitation,

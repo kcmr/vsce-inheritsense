@@ -112,11 +112,9 @@ The fixture categories have different purposes:
 
 Scenario sources are excluded from normal application lint because they are data
 under test, including invalid syntax and deliberately unresolved names. The test
-modules and helpers remain linted. Check complexity in valid scenario source with:
-
-```sh
-pnpm exec eslint test/fixtures/scenarios/static --no-config-lookup --rule 'complexity: [error, 15]'
-```
+modules and helpers remain linted. Run `pnpm lint` with the project configuration;
+it also enforces the complexity ceiling of 15 for production TypeScript source.
+Scenario fixtures are outside that configured complexity scope.
 
 The package-main import fixture stores its mock dependency in `package-dependencies/`;
 `fixtureGraph` renames that directory to `node_modules/` only in the temporary copy.

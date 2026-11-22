@@ -34,15 +34,15 @@
 - Turn recurring mistakes into a focused instruction, test, or tooling check.
 - New functions, including extracted or relocated code, must have ESLint
   cyclomatic complexity at most 15. Refactor before handoff; do not suppress the
-  rule or raise the limit. Existing warnings are accepted only for legacy functions.
+  rule or raise the limit. The project ESLint configuration enforces this ceiling
+  for all functions in `src/**/*.ts`.
 - Finish each change with [one critical self-review and a proposed commit](docs/agent-harness/review-and-commit.md).
   Wait for the user's manual review and explicit approval before committing.
 
 ## Verification
 
-- Types without generated output: `pnpm exec tsc --noEmit -p .`.
+- Types without generated output: `pnpm check:types`.
 - Lint: `pnpm lint`.
-- Verify new modules with `pnpm exec eslint <files> --rule 'complexity: [error, 15]'`.
 - Tests: `pnpm test` compiles current sources and runs the Node suite. Report
   TODO reproductions separately from passing tests; promote them when fixing bugs.
 - Keep test source scenarios in `test/fixtures/` and read them from tests so they
