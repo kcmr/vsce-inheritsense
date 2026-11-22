@@ -12,7 +12,7 @@ export function textDocument(fileName, source) {
   const lines = source.split("\n");
   const offsetAt = (position) => lines.slice(0, position.line).reduce((n, line) => n + line.length + 1, 0) + position.character;
   return {
-    fileName, uri: Uri.file(fileName), offsetAt,
+    fileName, uri: Uri.file(fileName), version: 1, offsetAt,
     getText(range) { return range ? source.slice(offsetAt(range.start), offsetAt(range.end)) : source; },
     lineAt(position) { return { text: lines[position.line] }; },
     getWordRangeAtPosition(position) {

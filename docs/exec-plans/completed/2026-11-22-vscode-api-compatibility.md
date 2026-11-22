@@ -71,7 +71,7 @@ documented scope decision.
   the minimum archive and the real extension callback: native line 1, characters
   2–9 versus extension line 1, character 0 (zero-based), identical target file.
   The pre-existing coexistence issue is tracked as
-  [FIX-04](../backlog/2026-11-22-duplicate-definition-targets.md), not changed here.
+  [FIX-04](2026-11-22-duplicate-definition-targets.md), not changed here.
 
 ## Decisions and blockers
 

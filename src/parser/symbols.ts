@@ -10,7 +10,7 @@ import type {
 } from "../model/types";
 import { parseJavaScript } from "./ast";
 import { dedupeProviders, expressionToProviderRef, findClassFromExpression, visitNode, visitThisScope } from "./astHelpers";
-import { assignedMemberKind, dedupeMembers, memberNameFromKey, toMemberDeclarations } from "./members";
+import { assignedMemberKind, dedupeMembers, memberDeclaration, memberNameFromKey, toMemberDeclarations } from "./members";
 import type { ExtractSymbolsOptions } from "./members";
 
 type AnyFunction = t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression;
@@ -63,7 +63,8 @@ function bagAssignmentName(member: t.MemberExpression): string | null {
 
 function collectInjectedMembersFromStatement(
   statement: t.Statement,
-  bagMembers: Map<string, MemberDeclaration[]>
+  bagMembers: Map<string, MemberDeclaration[]>,
+  options?: ExtractSymbolsOptions
 ): void {
   if (!t.isExpressionStatement(statement) || !t.isAssignmentExpression(statement.expression)) {
     return;
@@ -88,15 +89,14 @@ function collectInjectedMembersFromStatement(
   const bag = bagMembers.get(bagName) ?? [];
   const kind: MemberKind = assignedMemberKind(assignment.right);
 
-  bag.push({
-    name: memberName,
-    kind,
-    line: assignment.loc?.start.line ?? statement.loc?.start.line ?? 1
-  });
+  bag.push(memberDeclaration(
+    memberName, kind, assignment.loc?.start.line ?? statement.loc?.start.line ?? 1,
+    assignment.left.property, options
+  ));
   bagMembers.set(bagName, bag);
 }
 
-function collectBagMembers(programStatements: t.Statement[]): Map<string, MemberDeclaration[]> {
+function collectBagMembers(programStatements: t.Statement[], options?: ExtractSymbolsOptions): Map<string, MemberDeclaration[]> {
   const bagMembers = new Map<string, MemberDeclaration[]>();
 
   for (const statement of programStatements) {
@@ -117,11 +117,10 @@ function collectBagMembers(programStatements: t.Statement[]): Map<string, Member
               continue;
             }
             const kind: MemberKind = assignedMemberKind(property.value);
-            members.push({
-              name: memberName,
-              kind,
-              line: property.loc?.start.line ?? declaration.loc?.start.line ?? 1
-            });
+            members.push(memberDeclaration(
+              memberName, kind, property.loc?.start.line ?? declaration.loc?.start.line ?? 1,
+              property.key, options
+            ));
           }
           bagMembers.set(declaration.id.name, members);
         }
@@ -129,7 +128,7 @@ function collectBagMembers(programStatements: t.Statement[]): Map<string, Member
       continue;
     }
 
-    collectInjectedMembersFromStatement(statement, bagMembers);
+    collectInjectedMembersFromStatement(statement, bagMembers, options);
   }
 
   return bagMembers;
@@ -291,7 +290,8 @@ function collectDynamicBagInjectionMembers(
 function collectFunctionInjectionMeta(
   functionName: string,
   fn: AnyFunction,
-  bagMembers: Map<string, MemberDeclaration[]>
+  bagMembers: Map<string, MemberDeclaration[]>,
+  options?: ExtractSymbolsOptions
 ): FunctionInjectionMeta {
   const directMembers: MemberDeclaration[] = [];
   const delegatedCalls: string[] = [];
@@ -303,12 +303,11 @@ function collectFunctionInjectionMeta(
 
   visitNode(fn.body, (current) => {
     const assignedName = receiverAssignmentName(current, receiverParamName);
-    if (assignedName && t.isAssignmentExpression(current)) {
-      directMembers.push({
-        name: assignedName,
-        kind: assignedMemberKind(current.right),
-        line: current.loc?.start.line ?? fn.body.loc?.start.line ?? 1
-      });
+    if (assignedName && t.isAssignmentExpression(current) && t.isMemberExpression(current.left)) {
+      directMembers.push(memberDeclaration(
+        assignedName, assignedMemberKind(current.right), current.loc?.start.line ?? fn.body.loc?.start.line ?? 1,
+        current.left.property, options
+      ));
     }
 
     if (!t.isCallExpression(current) || !t.isIdentifier(current.callee)) {
@@ -333,13 +332,13 @@ function collectFunctionInjectionMeta(
   };
 }
 
-function collectInjectors(programStatements: t.Statement[]): Map<string, MemberDeclaration[]> {
-  const bagMembers = collectBagMembers(programStatements);
+function collectInjectors(programStatements: t.Statement[], options?: ExtractSymbolsOptions): Map<string, MemberDeclaration[]> {
+  const bagMembers = collectBagMembers(programStatements, options);
   const localFunctions = collectLocalFunctions(programStatements);
   const metaByFunction = new Map<string, FunctionInjectionMeta>();
 
   for (const [name, fn] of localFunctions) {
-    metaByFunction.set(name, collectFunctionInjectionMeta(name, fn, bagMembers));
+    metaByFunction.set(name, collectFunctionInjectionMeta(name, fn, bagMembers, options));
   }
 
   const resolved = new Map<string, MemberDeclaration[]>();
@@ -490,7 +489,7 @@ export function extractFileSymbols(
     imports: new Map(),
     exports: new Map(),
     exportedInitializers: new Map(),
-    injectors: collectInjectors(ast.program.body)
+    injectors: collectInjectors(ast.program.body, options)
   };
 
   for (const statement of ast.program.body) {

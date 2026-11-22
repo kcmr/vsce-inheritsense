@@ -7,6 +7,9 @@ its version, and no VS Code extension host is required.
 
 ## Node coverage
 
+- `definition-ranges.test.mjs`: opt-in declaration spans, literal/escaped keys,
+  constructor/permissive assignments, bag/delegated injectors, same-line origins,
+  unsaved source, module traversal, and TypeScript selection-range agreement.
 - `vscode-compatibility.test.mjs`: prevents drift between the declared minimum VS
   Code version, its exact type dependency, and the installed type version; see
   the [compatibility policy](../docs/vscode-compatibility.md).
@@ -52,8 +55,10 @@ golden results captured from the original hover implementation. It covers summar
 escaping boundaries, multiline tags, supported tags, and missing/ordinary comments.
 
 The Node integration suite exercises provider callbacks against a VS Code API
-boundary double. It does not establish real extension-host registration, editor
-behavior, or UI correctness. Use the [extension-host suite](#extension-host-suite)
+boundary double. Definition tests also use the real TypeScript language service
+to check native context/selection spans and guarded provider coexistence. These
+tests do not establish real extension-host registration, editor behavior, or UI
+correctness. Use the [extension-host suite](#extension-host-suite)
 when changing integration behavior. Keep runtime
 composition examples distinct from resolver tests: static analysis may intentionally
 accept module graphs that cannot execute, such as cyclic class inheritance.
@@ -175,6 +180,14 @@ The agent does not launch or manipulate the UI; the user performs these checks.
   absolute path to `external/root.js:2`, because `external` is not a workspace folder.
 - Select a result and verify navigation. Open the picker again and press Esc:
   it must close without changing the current file or cursor position.
+- Cmd/Ctrl+Click on `this.execute` in `second/subject.js` and
+  `second/external-subject.js` must offer one equivalent destination. Native
+  JavaScript and InheritSense must not create two entries for the same declaration.
+- Open [definition ranges](fixtures/scenarios/static/definition-ranges/subject.js)
+  and navigate from `this.injected` in `Subject.inspect`: the receiver assignment
+  in `direct` must remain navigable. `factoryMethod` must also remain navigable.
+  `Multiple.inspect` has two different `same` declarations on one source line;
+  retain both origins when tracing or when both providers contribute them.
 - Hover and completion should show the same origin paths. InheritSense omits
   local members from hover and inherited completion. Its `dynamic` completion
   appears in `second/subject.js` (permissive) and not in `first/subject.js` (strict).

@@ -54,6 +54,15 @@ function checkDocumentInput(first, second) {
   assert.equal(documentResolutionInput(first, position).includeMethodAssignedFields, false);
 }
 
+function assertSingleDefinitionTarget(definitions, filePath, line) {
+  const matching = definitions.filter((definition) =>
+    (definition.uri ?? definition.targetUri).fsPath === filePath);
+  assert.equal(matching.length, 1, "Equivalent native/extension destinations must coalesce");
+  const target = matching[0];
+  const range = target.targetSelectionRange ?? target.range ?? target.targetRange;
+  assert.deepEqual([range.start.line, range.start.character, range.end.line, range.end.character], [line, 2, line, 9]);
+}
+
 async function checkLookupProviders(second) {
   const position = positionOf(second, "this.execute", 7);
   const hovers = await vscode.commands.executeCommand("vscode.executeHoverProvider", second.uri, position);
@@ -62,9 +71,7 @@ async function checkLookupProviders(second) {
   assert.match(text, /root\.js:3/);
   assert.match(text, /Execute the inherited action/);
   const definitions = await vscode.commands.executeCommand("vscode.executeDefinitionProvider", second.uri, position);
-  assert(definitions.some((definition) =>
-    definition.uri?.fsPath === path.join(root, "first/root.js") &&
-    definition.range.start.line === 2 && definition.range.start.character === 0));
+  assertSingleDefinitionTarget(definitions, path.join(root, "first/root.js"), 2);
   const local = await vscode.commands.executeCommand("vscode.executeHoverProvider", second.uri, positionOf(second, "this.own", 6));
   assert.doesNotMatch(hoverText(local), /\*\*InheritSense\*\*/);
 }
@@ -75,8 +82,7 @@ async function checkExternalOrigin() {
   const hovers = await vscode.commands.executeCommand("vscode.executeHoverProvider", document.uri, position);
   assert(hoverText(hovers).includes(`${path.join(root, "external/root.js")}:2`));
   const definitions = await vscode.commands.executeCommand("vscode.executeDefinitionProvider", document.uri, position);
-  assert(definitions.some((definition) =>
-    definition.uri?.fsPath === path.join(root, "external/root.js") && definition.range.start.character === 0));
+  assertSingleDefinitionTarget(definitions, path.join(root, "external/root.js"), 1);
 }
 
 async function checkCompletionProviders(first, second) {

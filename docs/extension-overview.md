@@ -103,6 +103,7 @@ VS Code's `resource` configuration scope.
   - shared class member names, kinds, declarations, and deduplication
   - class assignments remain fields; function-valued injector assignments are methods
   - classes retain the first member per name/kind; injectors retain distinct lines
+    or distinct source ranges when requested for definitions
 
 - `src/parser/symbols.ts`
   - imports/classes/member extraction
@@ -130,6 +131,8 @@ VS Code's `resource` configuration scope.
     lookup stops at the first match within each root provider, while catalogs
     retain all origins in traversal order
   - both APIs consume parser member declarations; constructors are excluded
+  - definition lookups opt into zero-based declaration key ranges; ordinary
+    hover/catalog payloads retain their existing shape
 
 - `src/providers/memberOriginHoverProvider.ts`
   - inherited origin hover UI
@@ -138,7 +141,11 @@ VS Code's `resource` configuration scope.
   - isolated JSDoc extraction and Markdown formatting for hover
 
 - `src/providers/memberOriginDefinitionProvider.ts`
-  - definition navigation to resolved origins
+  - definition navigation to exact declaration key ranges
+
+- `src/providers/definitionTargets.ts`
+  - guarded public-provider query omits equivalent native selections while
+    preserving extension-only destinations and falling back on query failure
 
 - `src/providers/memberOriginCompletionProvider.ts`
   - inherited completion suggestions on `this.`
@@ -200,9 +207,8 @@ see [test instructions and coverage](../test/README.md). The five recorded
 correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
 there are no remaining TODO tests.
 
-1. Avoid duplicate native/extension definition destinations (FIX-04 in the quality register).
-2. Review remaining dependency/runtime compatibility and keep real-host coverage
-   when changing provider behavior.
+1. Review remaining dependency and runtime compatibility (see the quality register).
+2. Keep real-host coverage when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.
 

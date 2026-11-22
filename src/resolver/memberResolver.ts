@@ -13,6 +13,7 @@ import { resolveProvidersFromExpression, resolveProvidersFromSuperClass } from "
 
 interface ResolverBehaviorOptions {
   includeMethodAssignedFields?: boolean;
+  includeMemberRanges?: boolean;
 }
 
 interface ResolveInput {
@@ -22,6 +23,7 @@ interface ResolveInput {
   line: number;
   includeCurrentClass?: boolean;
   includeMethodAssignedFields?: boolean;
+  includeMemberRanges?: boolean;
 }
 
 interface ResolveCatalogInput {
@@ -30,6 +32,7 @@ interface ResolveCatalogInput {
   line: number;
   includeCurrentClass?: boolean;
   includeMethodAssignedFields?: boolean;
+  includeMemberRanges?: boolean;
 }
 
 function toOrigin(
@@ -45,6 +48,7 @@ function toOrigin(
     ownerName,
     filePath,
     line: member.line,
+    ...(member.range ? { range: member.range } : {}),
     confidence,
     notes
   };
@@ -94,7 +98,8 @@ function* traverseExportedMembers(
   context.visited.add(visitKey);
 
   const symbols = extractFileSymbols(fs.readFileSync(filePath, "utf8"), filePath, {
-    includeMethodAssignedFields: context.includeMethodAssignedFields
+    includeMethodAssignedFields: context.includeMethodAssignedFields,
+    includeMemberRanges: context.includeMemberRanges
   });
   const target = resolveExportBinding(symbols, provider);
   if (!target) {
@@ -182,7 +187,7 @@ function* traverseProviderMembers(
 
 function dedupeOrigins(origins: MemberOrigin[]): MemberOrigin[] {
   const dedupKey = (origin: MemberOrigin): string =>
-    `${origin.filePath}:${origin.line}:${origin.memberName}:${origin.ownerName}:${origin.kind}`;
+    `${origin.filePath}:${origin.line}:${origin.memberName}:${origin.ownerName}:${origin.kind}:${origin.range ? JSON.stringify(origin.range) : ""}`;
 
   const seen = new Set<string>();
   return origins.filter((origin) => {
@@ -212,7 +217,8 @@ function selectOrigins(origins: Iterable<MemberOrigin>, memberName?: string): Me
 function resolveOrigins(input: ResolveCatalogInput, memberName?: string): MemberOrigin[] {
   const includeCurrentClass = input.includeCurrentClass ?? (memberName !== undefined);
   const symbols = extractFileSymbols(input.sourceCode, input.filePath, {
-    includeMethodAssignedFields: input.includeMethodAssignedFields
+    includeMethodAssignedFields: input.includeMethodAssignedFields,
+    includeMemberRanges: input.includeMemberRanges
   });
   const currentClass = findClassAtLine(symbols.classes, input.line);
   if (!currentClass) {
@@ -231,7 +237,8 @@ function resolveOrigins(input: ResolveCatalogInput, memberName?: string): Member
     // Each root provider has its own search, preserving multiple composition origins.
     const context: TraversalContext = {
       visited: new Set([providerVisitKey(input.filePath, { localName: currentClass.name })]),
-      includeMethodAssignedFields: input.includeMethodAssignedFields
+      includeMethodAssignedFields: input.includeMethodAssignedFields,
+      includeMemberRanges: input.includeMemberRanges
     };
     origins.push(...selectOrigins(
       traverseMembersInSymbols(symbols, input.filePath, provider, "provider", context), memberName

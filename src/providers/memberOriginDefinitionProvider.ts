@@ -2,8 +2,10 @@ import * as vscode from "vscode";
 import { JS_SELECTOR, isSupportedJsFile, symbolAtPosition } from "../integration/javaScript";
 import { documentResolutionInput } from "../integration/resolution";
 import { resolveMemberOrigins } from "../resolver/memberResolver";
+import { definitionLocation, omitNativeDefinitions } from "./definitionTargets";
 
 export function registerMemberOriginDefinitionProvider(): vscode.Disposable {
+  const nativeQueries = new Set<string>();
   return vscode.languages.registerDefinitionProvider(JS_SELECTOR, {
     provideDefinition(document, position) {
       if (!isSupportedJsFile(document.fileName)) {
@@ -19,18 +21,15 @@ export function registerMemberOriginDefinitionProvider(): vscode.Disposable {
       try {
         const origins = resolveMemberOrigins({
           ...documentResolutionInput(document, position, { includeCurrentClass: false }),
-          memberName: symbol
+          memberName: symbol,
+          includeMemberRanges: true
         });
 
         if (origins.length === 0) {
           return undefined;
         }
 
-        return origins.map((origin) => {
-          const targetUri = vscode.Uri.file(origin.filePath);
-          const targetPosition = new vscode.Position(Math.max(0, origin.line - 1), 0);
-          return new vscode.Location(targetUri, targetPosition);
-        });
+        return omitNativeDefinitions(document, position, origins.map(definitionLocation), nativeQueries);
       } catch {
         return undefined;
       }

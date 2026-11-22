@@ -3,10 +3,17 @@ import type * as t from "@babel/types";
 export type MemberKind = "method" | "getter" | "setter" | "field";
 export type Confidence = "high" | "medium" | "low";
 
+// Zero-based UTF-16 positions, matching VS Code document ranges.
+export interface SourceRange {
+  start: { line: number; character: number };
+  end: { line: number; character: number };
+}
+
 export interface MemberDeclaration {
   name: string;
   kind: MemberKind;
   line: number;
+  range?: SourceRange;
 }
 
 export interface ClassSymbol {
@@ -46,6 +53,7 @@ export interface MemberOrigin {
   ownerName: string;
   filePath: string;
   line: number;
+  range?: SourceRange;
   confidence: Confidence;
   notes?: string;
 }

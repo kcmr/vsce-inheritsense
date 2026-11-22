@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-03, REF-01 through REF-04, and DEP-04 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, and DEP-04 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -204,14 +204,19 @@ and tooling. These priorities are not security-severity ratings.
   `pnpm test`: 79 passing, no TODOs; types and lint pass. Wildcard export discovery,
   nested/computed namespace chains, and CommonJS export inference remain outside scope.
 
-- [ ] **FIX-04 · P2 · Avoid duplicate native and extension definition targets.**
+- [x] **FIX-04 · P2 · Avoid duplicate native and extension definition targets.**
   User reproduced two Cmd/Ctrl+Click destinations for one inherited method in
   both VS Code 1.95.0 and the current debug host. The native provider targets the
   identifier range; InheritSense targets column zero with an empty range.
   **Acceptance:** show one equivalent destination while preserving different
   declarations (including in the same file) and extension-only factory/mixin/
-  injector navigation. See the [focused backlog plan](2026-11-22-duplicate-definition-targets.md)
-  for the fixture, reproduced ranges, and required native-coexistence coverage.
+  injector navigation. See the [completed plan](../completed/2026-11-22-duplicate-definition-targets.md)
+  for the fixture, reproduced ranges, and native-coexistence coverage.
+  Completed 2026-11-22 on `fix/duplicate-definitions`: opt-in key ranges and a
+  guarded public-provider query preserve distinct sites and extension fallbacks.
+  139 Node tests and 122 minimum embedded-runtime tests pass; types, lint, and
+  complexity pass. The user confirmed the current-editor correction; minimum UI
+  and automated host reruns were deferred and are not claimed.
 
 - [ ] **PERF-01 · P2 · Avoid repeated reads and parsing.**
   Resolution performs synchronous reads and repeated extraction per request.
@@ -271,8 +276,7 @@ and tooling. These priorities are not security-severity ratings.
    promoting their TODO reproductions to normal regression tests.
 2. Move test sources into debug-friendly fixtures (TEST-02), then finish legacy
    complexity reduction (REF-03) and UI duplication cleanup (REF-04).
-3. Fix duplicate definition destinations (FIX-04), then review remaining
-   dependency and runtime compatibility items in independent changes.
+3. Review remaining dependency and runtime compatibility items in independent changes.
 4. Review the wrapper contract separately (FIXTURE-03).
 5. Measure performance, improve diagnostics, and update documentation.
 
@@ -326,3 +330,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | TEST-02 completed | Shared on-disk scenarios and debug walkthrough; 104 passing tests, no TODOs; types/lint/complexity checks pass; user confirmed expected debug-mode results. |
 | 2026-11-22 | REF-04 completed | Shared VS Code integration helpers and per-origin paths; resource setting scopes; 127 passing Node tests; types/lint/complexity pass; user confirmed manual real-host checks. Automated host suite retained without a passing post-correction run. |
 | 2026-11-22 | DEP-04 completed; FIX-04 reproduced | Exact minimum API types and version guard; 128 development/116 embedded-runtime tests pass; user confirmed actual 1.95.0 operation. Native/extension duplicate target ranges reproduced and tracked separately. |
+| 2026-11-22 | FIX-04 completed | Precise opt-in declaration ranges and guarded native-provider coexistence; 139 development/122 minimum-runtime tests pass; types/lint/complexity pass; user confirmed current-editor navigation. Fresh minimum UI and automated host reruns deferred. |

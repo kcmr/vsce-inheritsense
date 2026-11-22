@@ -4,8 +4,9 @@ import { registerHooks } from "node:module";
 import { URL } from "node:url";
 import { beforeEach, test } from "node:test";
 import vscode from "./support/vscode.mjs";
-import { fixtureGraph, fixtureSource, sourceLine } from "./helpers.mjs";
+import { fixtureGraph, fixturePath, fixtureSource, sourceLine } from "./helpers.mjs";
 import { positionOf, textDocument } from "./support/documents.mjs";
+import { nativeDefinitionService, nativeDefinitionTargets } from "./support/native-definitions.mjs";
 
 // Only the VS Code boundary is doubled; providers use the real parser/resolver.
 registerHooks({
@@ -114,7 +115,7 @@ test("REF-04: Quick Pick formats each origin against its own root and preserves 
   assert.equal(await showOriginQuickPick(origins), null);
 });
 
-test("REF-04: hover and definition retain inherited origins, range, JSDoc, and local exclusion", (context) => {
+test("REF-04: hover and definition retain inherited origins, range, JSDoc, and local exclusion", async (context) => {
   const { document, position, file, source } = setup(context);
   const hover = state.providers.hover.provideHover(document, position);
   assert.match(markdownText(hover.contents), /root\.js:3/);
@@ -122,25 +123,25 @@ test("REF-04: hover and definition retain inherited origins, range, JSDoc, and l
   assert.equal(document.getText(hover.range), "execute");
   assert.equal(hover.contents.isTrusted, false);
   assert.equal(hover.contents.supportHtml, false);
-  const [definition] = state.providers.definition.provideDefinition(document, position);
+  const [definition] = await state.providers.definition.provideDefinition(document, position);
   assert.equal(definition.uri.fsPath, file("first/root.js"));
-  assert.equal(definition.range.line, 2);
+  assert.equal(definition.range.start.line, 2);
   const own = positionOf(source, "this.own", 6);
   assert.equal(state.providers.hover.provideHover(document, own), undefined);
-  assert.equal(state.providers.definition.provideDefinition(document, own), undefined);
+  assert.equal(await state.providers.definition.provideDefinition(document, own), undefined);
 });
 
-test("REF-04: lookup providers ignore unsupported files and absent symbols, and contain parse failures", (context) => {
+test("REF-04: lookup providers ignore unsupported files and absent symbols, and contain parse failures", async (context) => {
   const { document, position, source } = setup(context);
   const invalid = fixtureSource("scenarios/malformed/parser/unrecoverable-syntax/invalid.js");
   for (const provider of [state.providers.hover.provideHover, state.providers.definition.provideDefinition]) {
-    assert.equal(provider(textDocument("subject.ts", source), position), undefined);
-    assert.equal(provider({ ...document, getWordRangeAtPosition: () => undefined }, position), undefined);
-    assert.equal(provider({ ...document, getText: (range) => range ? "execute" : invalid }, position), undefined);
+    assert.equal(await provider(textDocument("subject.ts", source), position), undefined);
+    assert.equal(await provider({ ...document, getWordRangeAtPosition: () => undefined }, position), undefined);
+    assert.equal(await provider({ ...document, getText: (range) => range ? "execute" : invalid }, position), undefined);
   }
 });
 
-test("REF-04: providers respect strict/permissive resource settings and completion filtering", (context) => {
+test("REF-04: providers respect strict/permissive resource settings and completion filtering", async (context) => {
   const { document, source } = setup(context);
   const position = positionOf(source, "this.dynamic", 8);
   assert.equal(state.providers.hover.provideHover(document, position), undefined);
@@ -148,7 +149,7 @@ test("REF-04: providers respect strict/permissive resource settings and completi
   assert(!completion(document, position).some((item) => item.label === "dynamic"));
   state.settings.set(document.uri.fsPath, { "inheritSense.resolution.includeMethodAssignedFields": true });
   assert(state.providers.hover.provideHover(document, position));
-  assert.equal(state.providers.definition.provideDefinition(document, position).length, 1);
+  assert.equal((await state.providers.definition.provideDefinition(document, position)).length, 1);
   const items = completion(document, position);
   assert(items.some((item) => item.label === "dynamic"));
   assert(!items.some((item) => item.label === "own"));
@@ -193,4 +194,80 @@ test("REF-04: trace falls back to the cursor, respects cancellation, and reports
   await traceMemberOrigin();
   assert.equal(state.quickPick.items[0].origin.memberName, "execute");
   assert.deepEqual(state.opened, []);
+});
+
+test("FIX-04: definitions select the declaration identifier instead of a column-zero point", async (context) => {
+  const { document, position } = setup(context);
+  const [definition] = await state.providers.definition.provideDefinition(document, position);
+  assert.deepEqual(definition.range, new Range(new Position(2, 2), new Position(2, 9)));
+});
+
+test("FIX-04: native selection ranges suppress duplicate targets and recursive probes terminate", async (context) => {
+  const { document, position, file } = setup(context);
+  const selection = new Range(new Position(2, 2), new Position(2, 9));
+  state.definitionQuery = async () => {
+    const nested = await state.providers.definition.provideDefinition(document, position);
+    assert.deepEqual(nested[0].range, selection);
+    return [
+      { targetUri: nested[0].uri, targetRange: nested[0].range },
+      { targetUri: Uri.file(file("first/root.js")), targetRange: new Range(new Position(2, 2), new Position(2, 14)), targetSelectionRange: selection }
+    ];
+  };
+  assert.equal(await state.providers.definition.provideDefinition(document, position), undefined);
+  assert.equal(state.definitionQueries, 1);
+});
+
+test("FIX-04: a different declaration in the same file is retained and failed probes preserve fallback", async (context) => {
+  const { document, position, file } = setup(context);
+  state.definitionQuery = async () => [{
+    targetUri: Uri.file(file("first/root.js")),
+    targetRange: new Range(new Position(3, 2), new Position(3, 8)),
+    targetSelectionRange: new Range(new Position(3, 2), new Position(3, 8))
+  }];
+  assert.equal((await state.providers.definition.provideDefinition(document, position)).length, 1);
+  state.definitionQuery = async () => { throw new Error("native lookup failed"); };
+  assert.equal((await state.providers.definition.provideDefinition(document, position)).length, 1);
+  state.definitionQuery = async () => [];
+  assert.equal((await state.providers.definition.provideDefinition(document, position)).length, 1);
+  assert.equal(state.definitionQueries, 3);
+});
+
+test("FIX-04: the real TypeScript context/selection pair is preferred without losing injector fallback", async (context) => {
+  const { document, position, file, source } = setup(context);
+  const service = nativeDefinitionService(context, [document.fileName, file("first/root.js")]);
+  const offset = source.indexOf("this.execute") + 7;
+  const native = nativeDefinitionTargets(service, document.fileName, offset);
+  assert.equal(native.length, 1);
+  assert.notDeepEqual(native[0].contextRange, native[0].range);
+  state.definitionQuery = async () => {
+    const nested = await state.providers.definition.provideDefinition(document, position);
+    return [
+      ...nested.map((location) => ({ targetUri: location.uri, targetRange: location.range })),
+      ...native.map((target) => ({ targetUri: Uri.file(target.filePath), targetRange: target.contextRange, targetSelectionRange: target.range }))
+    ];
+  };
+  assert.equal(await state.providers.definition.provideDefinition(document, position), undefined);
+  state.definitionQuery = async () => [];
+  const injectionSource = fixtureSource("scenarios/static/definition-ranges/subject.js");
+  const injectionDocument = textDocument(fixturePath("scenarios/static/definition-ranges/subject.js"), injectionSource);
+  const [injected] = await state.providers.definition.provideDefinition(injectionDocument, positionOf(injectionSource, "this.injected", 7));
+  assert(injected.range.start.character > 0);
+});
+
+test("FIX-04: native equivalence removes only one of two real declarations on the same file line", async () => {
+  registerMemberOriginDefinitionProvider();
+  const source = fixtureSource("scenarios/static/definition-ranges/subject.js");
+  const document = textDocument(fixturePath("scenarios/static/definition-ranges/subject.js"), source);
+  const position = positionOf(source, "this.same", 7);
+  let first;
+  state.definitionQuery = async () => {
+    const nested = await state.providers.definition.provideDefinition(document, position);
+    assert.equal(nested.length, 2);
+    first = nested[0].range;
+    assert.equal(first.start.line, nested[1].range.start.line);
+    return [{ targetUri: nested[0].uri, targetRange: first, targetSelectionRange: first }];
+  };
+  const remaining = await state.providers.definition.provideDefinition(document, position);
+  assert.equal(remaining.length, 1);
+  assert.notDeepEqual(remaining[0].range, first);
 });

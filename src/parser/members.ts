@@ -4,11 +4,29 @@ import { visitThisScope } from "./astHelpers";
 
 export interface ExtractSymbolsOptions {
   includeMethodAssignedFields?: boolean;
+  includeMemberRanges?: boolean;
+}
+
+export function memberDeclaration(
+  name: string,
+  kind: MemberKind,
+  line: number,
+  key: t.Node,
+  options?: ExtractSymbolsOptions
+): MemberDeclaration {
+  const member: MemberDeclaration = { name, kind, line };
+  if (options?.includeMemberRanges && key.loc) {
+    member.range = {
+      start: { line: key.loc.start.line - 1, character: key.loc.start.column },
+      end: { line: key.loc.end.line - 1, character: key.loc.end.column }
+    };
+  }
+  return member;
 }
 
 type AnyClassMember = t.ClassBody["body"][number];
 
-function collectThisAssignedFieldsFromNode(node: t.Node): MemberDeclaration[] {
+function collectThisAssignedFieldsFromNode(node: t.Node, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const found: MemberDeclaration[] = [];
 
   visitThisScope(node, (current) => {
@@ -20,11 +38,10 @@ function collectThisAssignedFieldsFromNode(node: t.Node): MemberDeclaration[] {
         t.isThisExpression(current.left.object) &&
         t.isIdentifier(current.left.property)
       ) {
-        found.push({
-          name: current.left.property.name,
-          kind: "field",
-          line: current.loc?.start.line ?? 1
-        });
+        found.push(memberDeclaration(
+          current.left.property.name, "field", current.loc?.start.line ?? 1,
+          current.left.property, options
+        ));
       }
     }
   });
@@ -46,7 +63,8 @@ export function memberNameFromKey(key: t.Expression | t.PrivateName): string | n
 export function dedupeMembers(members: MemberDeclaration[], includeLine = true): MemberDeclaration[] {
   const seen = new Set<string>();
   return members.filter((member) => {
-    const key = `${member.name}:${member.kind}${includeLine ? `:${member.line}` : ""}`;
+    const rangeKey = includeLine && member.range ? JSON.stringify(member.range) : "";
+    const key = `${member.name}:${member.kind}${includeLine ? `:${member.line}` : ""}:${rangeKey}`;
     if (seen.has(key)) {
       return false;
     }
@@ -83,23 +101,22 @@ function getMemberKind(node: AnyClassMember): MemberKind | null {
   return null;
 }
 
-function collectExplicitMembers(classNode: t.Class): MemberDeclaration[] {
+function collectExplicitMembers(classNode: t.Class, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const members: MemberDeclaration[] = [];
   for (const element of classNode.body.body) {
     const kind = getMemberKind(element);
     const name = getMemberName(element);
-    if (kind && name) {
-      members.push({
-        name,
-        kind,
-        line: element.loc?.start.line ?? classNode.loc?.start.line ?? 1
-      });
+    if (kind && name && "key" in element) {
+      members.push(memberDeclaration(
+        name, kind, element.loc?.start.line ?? classNode.loc?.start.line ?? 1,
+        element.key, options
+      ));
     }
   }
   return members;
 }
 
-function collectPropertyBagMembers(object: t.ObjectExpression, fallbackLine: number): MemberDeclaration[] {
+function collectPropertyBagMembers(object: t.ObjectExpression, fallbackLine: number, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const members: MemberDeclaration[] = [];
   for (const property of object.properties) {
     if (!t.isObjectProperty(property) || property.computed) {
@@ -107,23 +124,23 @@ function collectPropertyBagMembers(object: t.ObjectExpression, fallbackLine: num
     }
     const name = memberNameFromKey(property.key);
     if (name) {
-      members.push({ name, kind: "field", line: property.loc?.start.line ?? fallbackLine });
+      members.push(memberDeclaration(name, "field", property.loc?.start.line ?? fallbackLine, property.key, options));
     }
   }
   return members;
 }
 
-function collectGetterProperties(getter: t.ClassMethod, fallbackLine: number): MemberDeclaration[] {
+function collectGetterProperties(getter: t.ClassMethod, fallbackLine: number, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const members: MemberDeclaration[] = [];
   for (const statement of getter.body.body) {
     if (t.isReturnStatement(statement) && statement.argument && t.isObjectExpression(statement.argument)) {
-      members.push(...collectPropertyBagMembers(statement.argument, fallbackLine));
+      members.push(...collectPropertyBagMembers(statement.argument, fallbackLine, options));
     }
   }
   return members;
 }
 
-function collectDeclarativeMembers(classNode: t.Class): MemberDeclaration[] {
+function collectDeclarativeMembers(classNode: t.Class, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const members: MemberDeclaration[] = [];
   for (const element of classNode.body.body) {
     if (!t.isClassMethod(element) || !element.static || element.kind !== "get") {
@@ -132,7 +149,7 @@ function collectDeclarativeMembers(classNode: t.Class): MemberDeclaration[] {
     if (!t.isIdentifier(element.key) || element.key.name !== "properties") {
       continue;
     }
-    members.push(...collectGetterProperties(element, element.loc?.start.line ?? classNode.loc?.start.line ?? 1));
+    members.push(...collectGetterProperties(element, element.loc?.start.line ?? classNode.loc?.start.line ?? 1, options));
   }
   return members;
 }
@@ -141,24 +158,24 @@ function collectsAssignments(method: t.ClassMethod, includeMethodAssignedFields:
   return method.kind === "constructor" || (includeMethodAssignedFields && !method.static);
 }
 
-function collectAssignedMembers(classNode: t.Class, includeMethodAssignedFields: boolean): MemberDeclaration[] {
+function collectAssignedMembers(classNode: t.Class, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const members: MemberDeclaration[] = [];
   for (const element of classNode.body.body) {
-    if (!t.isClassMethod(element) || !collectsAssignments(element, includeMethodAssignedFields)) {
+    if (!t.isClassMethod(element) || !collectsAssignments(element, options?.includeMethodAssignedFields ?? false)) {
       continue;
     }
-    members.push(...collectThisAssignedFieldsFromNode(element.body));
+    members.push(...collectThisAssignedFieldsFromNode(element.body, options));
   }
   return members;
 }
 
 export function toMemberDeclarations(classNode: t.Class, options?: ExtractSymbolsOptions): MemberDeclaration[] {
   const members = [
-    ...collectExplicitMembers(classNode),
-    ...collectDeclarativeMembers(classNode),
-    ...collectAssignedMembers(classNode, options?.includeMethodAssignedFields ?? false)
+    ...collectExplicitMembers(classNode, options),
+    ...collectDeclarativeMembers(classNode, options),
+    ...collectAssignedMembers(classNode, options)
   ];
-  // Classes keep the first declaration per name/kind; injectors retain source lines.
+  // Classes keep the first declaration per name/kind; injectors retain distinct sites.
   return dedupeMembers(members, false);
 }
 
