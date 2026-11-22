@@ -1,8 +1,8 @@
 # CI and semantic release
 
-Status: Active
+Status: Completed
 Created: 2026-11-22
-Completed: —
+Completed: 2026-11-22
 
 ## Goal and scope
 
@@ -20,7 +20,7 @@ The release stage continues on `ci/release-workflow` after the approved CI merge
 - [x] The lint/test workflow passes on GitHub for the implementation branch
   before its changes are merged to main. Local checks and hosted runs are
   recorded separately.
-- [ ] Release workflow is separate, uses full Git history and semantic-release,
+- [x] Release workflow is separate, uses full Git history and semantic-release,
   and is first tested without publishing, pushing release commits, or creating
   remote tags/releases. A real publication is a later explicitly enabled action.
 - [x] Release configuration analyzes Conventional Commits, generates release
@@ -34,9 +34,9 @@ The release stage continues on `ci/release-workflow` after the approved CI merge
 - [x] Configure the required main check and the owner-selected administrative
   exception. Record its actor-based scope accurately; it also applies to manual
   actions by administrators, not just automated commits.
-- [ ] Existing types, lint, tests, package/runtime compatibility, and changed
-  workflow/configuration checks pass. Keep this plan active until all required
-  staged validation is finished.
+- [x] Existing types, lint, tests, package/runtime compatibility, and changed
+  workflow/configuration checks pass. All required staged validation is complete;
+  the separately authorized first real publication is also verified below.
 
 ## Steps
 
@@ -50,8 +50,8 @@ The release stage continues on `ci/release-workflow` after the approved CI merge
 - [x] Configure semantic-release dependencies, plugin order, package/build hooks,
   and the independent release workflow after the first CI stage is verified.
 - [x] Validate the release calculation and packaging locally without publication.
-- [ ] Verify the independent release workflow on GitHub in simulation mode.
-- [ ] Record remaining operational follow-ups, complete verification, and perform
+- [x] Verify the independent release workflow on GitHub in simulation mode.
+- [x] Record remaining operational follow-ups, complete verification, and perform
   the scoped review/commit handoff.
 
 ## CI-stage local verification
@@ -61,8 +61,8 @@ The release stage continues on `ci/release-workflow` after the approved CI merge
   changes set `0.0.0` and remove that increment.
 - Installed pnpm is 12.21.0. CI will use this version and the supported Node 24
   development baseline; it does not change the local development runtime.
-- Hosted release execution is pending. Local release preparation, packaging,
-  main protection, and the two CI stages are verified below.
+- Hosted release simulation, local release preparation, packaging, main
+  protection, and the two CI stages are verified below.
 - `pnpm install --frozen-lockfile --strict-peer-dependencies --offline`: passed;
   package metadata and lockfile are unchanged.
 - `pnpm check:types`: passed with the new script, without generated output.
@@ -104,7 +104,8 @@ The release stage continues on `ci/release-workflow` after the approved CI merge
   The owner selected an administrative exception for automation. GitHub applies
   it to administrators as actors, including their manual actions; commit messages
   and bot authorship do not grant bypass.
-- Validate release behavior without enabling actual publication during this task.
+- Initial validation must not publish. The owner later explicitly authorized
+  the first real publication after both hosted workflows passed.
 - Operational account setup instructions remain outside repository documentation.
 - Use semantic-release 24.2.9 and compatible plugin majors to preserve the
   declared Node >=24 tooling floor. Current semantic-release 26 requires
@@ -153,16 +154,17 @@ The release stage continues on `ci/release-workflow` after the approved CI merge
 - Default, false, and explicitly enabled release configuration gates were checked.
   Default configuration is dry-run and disables Marketplace publishing. The
   workflow has an additional enablement gate and validates packaging during
-  simulation. No publication was enabled during this work.
+  simulation. Publication was not enabled during initial verification.
 - Main protection API confirms required `Lint and test`, GitHub Actions app 15368,
   strict branch freshness, required pull requests, disabled force-push/deletion,
   and the owner-selected administrative bypass. Personal repositories do not
   accept an individual-user restriction list; the configured role exception is
   stated explicitly rather than claimed to distinguish automated/manual use.
-- Both workflow files pass actionlint 1.7.12. Hosted release and real-editor
-  bundle verification remain unperformed.
-- GitHub has no release enablement variable set and still reports zero tags and
-  releases after these checks. No Marketplace credentials were used.
+- Both workflow files pass actionlint 1.7.12. Hosted release simulation is
+  verified below; real-editor bundle verification remains unperformed.
+- At the end of non-publishing verification, GitHub had no release enablement
+  variable set and reported zero tags and releases. No Marketplace credentials
+  were used during those checks.
 
 ## CI-stage critical self-review
 
@@ -199,10 +201,22 @@ guidance are preserved; the workflow and documentation checks still pass.
 
 ## Next step
 
-The owner approved the release-stage commit, branch publication, and pull
-request on 2026-11-22. Open the pull request and verify its CI. Obtain separate
-merge approval, then verify hosted release simulation and packaging before
-closing this plan. Keep publication disabled.
+None for implementation or initial publication. Await approval of the
+documentation-only closure commit. Automatic release is now enabled following
+the owner's explicit publication authorization.
+
+## Release pull-request CI
+
+- The owner approved the release-stage commit, branch publication, and opening
+  the pull request on 2026-11-22. Commit `27d765ef276b8031d8ae8eb37b3c064843b30f78`
+  is published on `ci/release-workflow`.
+- [Pull request #2](https://github.com/kcmr/vsce-inheritsense/pull/2) merged to
+  main with owner approval as `63a7d4bf146b0a798bfff47ee5075605b3e003c9`.
+- [Run 45064204095](https://github.com/kcmr/vsce-inheritsense/actions/runs/45064204095)
+  passed for that exact head commit. This verifies the new dependency graph,
+  types, lint, and tests in the hosted Ubuntu/Node 24 CI environment.
+- The owner subsequently approved merge and hosted simulation. At that point,
+  real publication was still disabled and not yet authorized.
 
 ## Bundle inspection and minification follow-up
 
@@ -230,7 +244,9 @@ enablement gates, credentials limited to the publishing step, absence of npm
 publishing, plugin prepare order, administrative bypass scope, Node baseline,
 bundled runtime dependencies, and package contents. Corrected stale packaging
 side-effect guidance in the quality register. No unresolved local code findings.
-Hosted workflow and real-editor verification remain explicitly unperformed.
+The hosted workflow was subsequently verified as recorded below. Real-editor
+verification remains unperformed; no second autonomous review was needed for
+the documentation-only closure.
 
 Proposed release-stage commit: `ci: configure guarded semantic releases`.
 Scope: release workflow/configuration, release/build dependencies and lockfile,
@@ -241,4 +257,73 @@ actual publication are not part of that approval.
 
 ## Final result
 
-Pending staged implementation and hosted verification.
+Completed CI and guarded semantic-release configuration on 2026-11-22. Both
+pull requests passed CI before their approved merges, and the main CI and
+independent release simulation passed afterward. The manifest was reset to
+0.0.0 before semantic-release calculated and published 1.0.0; main now contains
+version 1.0.0. Manual patch increments are removed.
+The minified, self-contained package and prepare-hook ordering are verified.
+Main protection requires the configured check with the stated administrative
+exception. The first real publication was subsequently authorized and verified below.
+Real-editor bundle inspection remains unperformed; hosted publication is verified.
+
+
+## Hosted release verification and closure
+
+- [Main CI run 45064477032](https://github.com/kcmr/vsce-inheritsense/actions/runs/45064477032)
+  passed after merge on `63a7d4bf146b0a798bfff47ee5075605b3e003c9`.
+- [Release run 45064516343](https://github.com/kcmr/vsce-inheritsense/actions/runs/45064516343)
+  ran automatically from that successful main CI and completed successfully.
+  Dependency installation, semantic-release simulation, and VSIX packaging
+  passed; the real publication step was skipped.
+- The hosted log confirms dry-run mode, initial version 1.0.0, skipped prepare,
+  tag, and publishing hooks, and a minified package of approximately 4.62 MB.
+  The packaging smoke step builds the unchanged development version; isolated
+  local prepare-hook verification separately covers the 1.0.0 release package.
+- GitHub reports zero tags and zero releases after this hosted check. No
+  Marketplace publishing credentials were supplied or used.
+- Moved this fully verified plan to completed and repaired the plan-index link.
+  Reused the recorded critical reviews. Closure checks cover links, whitespace,
+  acceptance criteria, and accurate remaining verification limits.
+
+Proposed closure commit: `docs: finalize release verification and VSIX installation`.
+Scope: this completed plan, the plan-index link, and the README's release-based
+VSIX installation instructions. Await explicit approval before committing or
+publishing the documentation closure branch.
+
+
+## First authorized publication
+
+- After hosted simulation passed, the owner explicitly authorized the first
+  production release on 2026-11-22. Publication enablement was then activated.
+- [Run 45066746055](https://github.com/kcmr/vsce-inheritsense/actions/runs/45066746055)
+  completed successfully through manual dispatch. Type checking, lint, tests,
+  authentication, packaging, and the real publishing step passed; simulation
+  steps were skipped for this explicitly authorized run.
+- [GitHub release v1.0.0](https://github.com/kcmr/vsce-inheritsense/releases/tag/v1.0.0)
+  is published, neither draft nor prerelease, with `inheritsense-1.0.0.vsix`
+  attached (4,847,989 bytes).
+- Marketplace metadata confirms publisher `kuscamara`, extension `inheritsense`,
+  and version 1.0.0 at the
+  [Marketplace listing](https://marketplace.visualstudio.com/items?itemName=kuscamara.inheritsense).
+- Main advanced to `4fae45350df69451b61a468d86afcc76b7c0330b` with the generated
+  `chore(release): 1.0.0 [skip ci]` commit. Its manifest is 1.0.0, confirming
+  that the chosen administrative automation path works with branch protection.
+- Operational credential instructions remain outside repository documentation.
+  Publication configuration and evidence are complete; the final documentation
+  closure still awaits its own commit approval.
+
+## Final branch and documentation review
+
+- Owner-requested review found no branch-only commits and one missing main
+  commit: the generated 1.0.0 release commit. Fast-forwarded
+  `docs/complete-ci-release-plan` to origin/main while preserving pending plan
+  closure and index changes. The branch now includes CHANGELOG and version 1.0.0.
+- Replaced the README's local-build requirement for VSIX installation with a
+  link to the latest GitHub release, whose 1.0.0 VSIX asset was verified.
+  The link follows future releases without hardcoding an asset version.
+- Corrected stale present-tense statements about disabled publication and the
+  manifest version; retained the chronology of simulation and actual publication.
+- Reused the prior implementation reviews and performed this additional review
+  at the owner's explicit request. Local links, content, and whitespace pass;
+  no source/configuration changes or build/test reruns are required.

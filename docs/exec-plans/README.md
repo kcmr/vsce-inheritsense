@@ -14,4 +14,4 @@ Documentation and metadata:
 [README, license, and package metadata](completed/2026-11-22-public-documentation-and-package.md).
 
 CI and release:
-[CI and semantic release](active/2026-11-22-ci-and-semantic-release.md).
+[CI and semantic release](completed/2026-11-22-ci-and-semantic-release.md).
