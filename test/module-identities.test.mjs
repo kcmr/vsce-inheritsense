@@ -2,16 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { extractFileSymbols } from "../dist/parser/symbols.js";
 import { resolveMemberOrigins, resolveInheritedMemberCatalog } from "../dist/resolver/memberResolver.js";
-import { assertOrigin, documentInput, moduleGraph } from "./helpers.mjs";
+import { assertOrigin, documentInput, fixtureGraph, fixtureSource } from "./helpers.mjs";
 
 test("FIX-03: keeps imports, local exports, and reexports in separate identity maps", () => {
-  const { imports, exports } = extractFileSymbols(`
-import Default from './default.js';
-import { Root as Local } from './root.js';
-import * as namespace from './root.js';
-export { Local as Public, Default as default };
-export { Root as Remote } from './root.js';
-export * as providers from './root.js';`, "subject.js");
+  const { imports, exports } = extractFileSymbols(fixtureSource("scenarios/static/module-identities/identity-maps/subject.js"), "subject.js");
   assert.deepEqual([...imports], [
     ["Default", { source: "./default.js", importedName: "default" }],
     ["Local", { source: "./root.js", importedName: "Root" }],
@@ -25,36 +19,30 @@ export * as providers from './root.js';`, "subject.js");
 });
 
 const classCases = [
-  { name: "empty namespace export name", barrel: 'export * as "" from "./root.js";', imported: 'import { "" as ns } from "./barrel.js";', base: "ns.Root" },
-  { name: "quoted export aliases", root: 'class Root { execute() {} } export { Root as "public-base" };', barrel: 'export { "public-base" as "public-api" } from "./root.js";', imported: 'import { "public-api" as Base } from "./barrel.js";' },
-  { name: "anonymous default function factory", root: "export default function(parent) { return class extends parent { execute() {} }; }", imported: "import Base from './root.js';", base: "Base(Object)", owner: "default" },
-  { name: "local export alias", root: "class Root { execute() {} } export { Root as Public };", imported: "import { Public as Base } from './root.js';" },
-  { name: "import and reexport alias chain", barrel: "import { Root as Internal } from './root.js'; export { Internal as Public };", imported: "import { Public as Base } from './barrel.js';" },
-  { name: "multiple remote aliases", barrel: "export { Root as First } from './root.js';", bridge: "export { First as Public } from './barrel.js';", imported: "import { Public as Base } from './bridge.js';" },
-  { name: "named default class", root: "export default class Root { execute() {} }", imported: "import Base from './root.js';" },
-  { name: "anonymous default class", root: "export default class { execute() {} }", imported: "import Base from './root.js';", owner: "default" },
-  { name: "default identifier", root: "class Root { execute() {} } export default Root;", imported: "import Base from './root.js';" },
-  { name: "default export list", root: "class Root { execute() {} } export { Root as default };", imported: "import Base from './root.js';" },
-  { name: "default to named reexport", root: "export default class Root { execute() {} }", barrel: "export { default as Public } from './root.js';", imported: "import { Public as Base } from './barrel.js';" },
-  { name: "named to default reexport", barrel: "export { Root as default } from './root.js';", imported: "import Base from './barrel.js';" },
-  { name: "namespace member", imported: "import * as ns from './root.js';", base: "ns.Root" },
-  { name: "namespace default member", root: "export default class Root { execute() {} }", imported: "import * as ns from './root.js';", base: "ns.default" },
-  { name: "namespace reexport", barrel: "export * as providers from './root.js';", imported: "import { providers as ns } from './barrel.js';", base: "ns.Root" },
-  { name: "local namespace reexport", barrel: "import * as internal from './root.js'; export { internal as providers };", imported: "import { providers as ns } from './barrel.js';", base: "ns.Root" },
-  { name: "named default factory", root: "export default function Root(parent) { return class extends parent { execute() {} }; }", imported: "import Base from './root.js';", base: "Base(Object)" },
-  { name: "anonymous default factory", root: "export default parent => class extends parent { execute() {} };", imported: "import Base from './root.js';", base: "Base(Object)", owner: "default" },
-  { name: "renamed factory", root: "export const Root = parent => class extends parent { execute() {} };", barrel: "export { Root as Public } from './root.js';", imported: "import { Public as Base } from './barrel.js';", base: "Base(Object)" }
+  { name: "empty namespace export name", fixture: "scenarios/static/module-identities/classes/empty-namespace-export-name" },
+  { name: "quoted export aliases", fixture: "scenarios/static/module-identities/classes/quoted-export-aliases" },
+  { name: "anonymous default function factory", fixture: "scenarios/static/module-identities/classes/anonymous-default-function-factory", owner: "default" },
+  { name: "local export alias", fixture: "scenarios/static/module-identities/classes/local-export-alias" },
+  { name: "import and reexport alias chain", fixture: "scenarios/static/module-identities/classes/import-and-reexport-alias-chain" },
+  { name: "multiple remote aliases", fixture: "scenarios/static/module-identities/classes/multiple-remote-aliases" },
+  { name: "named default class", fixture: "scenarios/static/module-identities/classes/named-default-class" },
+  { name: "anonymous default class", fixture: "scenarios/static/module-identities/classes/anonymous-default-class", owner: "default" },
+  { name: "default identifier", fixture: "scenarios/static/module-identities/classes/default-identifier" },
+  { name: "default export list", fixture: "scenarios/static/module-identities/classes/default-export-list" },
+  { name: "default to named reexport", fixture: "scenarios/static/module-identities/classes/default-to-named-reexport" },
+  { name: "named to default reexport", fixture: "scenarios/static/module-identities/classes/named-to-default-reexport" },
+  { name: "namespace member", fixture: "scenarios/static/module-identities/classes/namespace-member" },
+  { name: "namespace default member", fixture: "scenarios/static/module-identities/classes/namespace-default-member" },
+  { name: "namespace reexport", fixture: "scenarios/static/module-identities/classes/namespace-reexport" },
+  { name: "local namespace reexport", fixture: "scenarios/static/module-identities/classes/local-namespace-reexport" },
+  { name: "named default factory", fixture: "scenarios/static/module-identities/classes/named-default-factory" },
+  { name: "anonymous default factory", fixture: "scenarios/static/module-identities/classes/anonymous-default-factory", owner: "default" },
+  { name: "renamed factory", fixture: "scenarios/static/module-identities/classes/renamed-factory" }
 ];
 
 for (const example of classCases) {
   test(`FIX-03: lookup/catalog resolve ${example.name}`, (context) => {
-    const file = moduleGraph(context, {
-      "root.js": example.root ?? "export class Root { execute() {} }",
-      "barrel.js": example.barrel ?? "",
-      "bridge.js": example.bridge ?? "",
-      "subject.js": `${example.imported}
-class Subject extends ${example.base ?? "Base"} { inspect() {} }`
-    });
+    const file = fixtureGraph(context, example.fixture);
     const input = documentInput(file("subject.js"), "inspect()");
     const origins = resolveMemberOrigins({ ...input, memberName: "execute" });
     assert.equal(origins.length, 1);
@@ -67,25 +55,19 @@ class Subject extends ${example.base ?? "Base"} { inspect() {} }`
 }
 
 const injectorCases = [
-  { name: "default identifier through a barrel", root: "function install(target) { target.injected = true; } export default install;", barrel: "export { default as Public } from './root.js';", imported: "import { Public as apply } from './barrel.js';", callee: "apply", owner: "install" },
-  { name: "named alias", root: "export function install(target) { target.injected = true; }", barrel: "export { install as Public } from './root.js';", imported: "import { Public as apply } from './barrel.js';", callee: "apply", owner: "install" },
-  { name: "local alias", root: "function install(target) { target.injected = true; } export { install as Public };", imported: "import { Public as apply } from './root.js';", callee: "apply", owner: "install" },
-  { name: "named default", root: "export default function install(target) { target.injected = true; }", imported: "import apply from './root.js';", callee: "apply", owner: "install" },
-  { name: "anonymous default", root: "export default function(target) { target.injected = true; }", imported: "import apply from './root.js';", callee: "apply", owner: "default" },
-  { name: "default arrow", root: "export default target => { target.injected = true; };", imported: "import apply from './root.js';", callee: "apply", owner: "default" },
-  { name: "namespace", root: "export function install(target) { target.injected = true; }", imported: "import * as ns from './root.js';", callee: "ns.install", owner: "install" },
-  { name: "namespace reexport", root: "export function install(target) { target.injected = true; }", barrel: "export * as providers from './root.js';", imported: "import { providers as ns } from './barrel.js';", callee: "ns.install", owner: "install" }
+  { name: "default identifier through a barrel", fixture: "scenarios/static/module-identities/injectors/default-identifier-through-a-barrel", owner: "install" },
+  { name: "named alias", fixture: "scenarios/static/module-identities/injectors/named-alias", owner: "install" },
+  { name: "local alias", fixture: "scenarios/static/module-identities/injectors/local-alias", owner: "install" },
+  { name: "named default", fixture: "scenarios/static/module-identities/injectors/named-default", owner: "install" },
+  { name: "anonymous default", fixture: "scenarios/static/module-identities/injectors/anonymous-default", owner: "default" },
+  { name: "default arrow", fixture: "scenarios/static/module-identities/injectors/default-arrow", owner: "default" },
+  { name: "namespace", fixture: "scenarios/static/module-identities/injectors/namespace", owner: "install" },
+  { name: "namespace reexport", fixture: "scenarios/static/module-identities/injectors/namespace-reexport", owner: "install" }
 ];
 
 for (const example of injectorCases) {
   test(`FIX-03: injector lookup/catalog resolve ${example.name}`, (context) => {
-    const file = moduleGraph(context, {
-      "root.js": example.root,
-      "barrel.js": example.barrel ?? "",
-      "base.js": `${example.imported}
-export class Base { constructor() { ${example.callee}(this); } }`,
-      "subject.js": "import { Base } from './base.js'; class Subject extends Base { inspect() {} }"
-    });
+    const file = fixtureGraph(context, example.fixture);
     const input = documentInput(file("subject.js"), "inspect()");
     const origins = resolveMemberOrigins({ ...input, memberName: "injected" });
     assert.equal(origins.length, 1);
@@ -98,20 +80,16 @@ export class Base { constructor() { ${example.callee}(this); } }`,
 }
 
 for (const example of [
-  { name: "nested namespace qualifiers", root: "export class Root { execute() {} }", imported: "import * as ns from './root.js'; class Root { execute() {} }", base: "ns.sub.Root" },
-  { name: "unexported declaration", root: "class Root { execute() {} } export class Other {}", imported: "import { Root as Base } from './root.js';", base: "Base" },
-  { name: "missing default", root: "export class Base { execute() {} }", imported: "import Base from './root.js';", base: "Base" },
-  { name: "bare namespace", root: "export class ns { execute() {} }", imported: "import * as ns from './root.js';", base: "ns" },
-  { name: "namespace member colliding with a local class", root: "export class Other {}", imported: "import * as ns from './root.js'; class Root { execute() {} }", base: "ns.Root" },
-  { name: "instance property on a default class", root: "export default class Root { execute() {} }", imported: "import ns from './root.js'; class Root { execute() {} }", base: "ns.Root" },
-  { name: "wildcard export", root: "export class Root { execute() {} }", barrel: "export * from './root.js';", imported: "import { Root as Base } from './barrel.js';", base: "Base" }
+  { name: "nested namespace qualifiers", fixture: "scenarios/static/module-identities/negative/nested-namespace-qualifiers" },
+  { name: "unexported declaration", fixture: "scenarios/static/module-identities/negative/unexported-declaration" },
+  { name: "missing default", fixture: "scenarios/static/module-identities/negative/missing-default" },
+  { name: "bare namespace", fixture: "scenarios/static/module-identities/negative/bare-namespace" },
+  { name: "namespace member colliding with a local class", fixture: "scenarios/static/module-identities/negative/namespace-member-colliding-with-a-local-class" },
+  { name: "instance property on a default class", fixture: "scenarios/static/module-identities/negative/instance-property-on-a-default-class" },
+  { name: "wildcard export", fixture: "scenarios/static/module-identities/negative/wildcard-export" }
 ]) {
   test(`FIX-03: rejects ${example.name}`, (context) => {
-    const file = moduleGraph(context, {
-      "root.js": example.root,
-      "barrel.js": example.barrel ?? "",
-      "subject.js": `${example.imported}\nclass Subject extends ${example.base} { inspect() {} }`
-    });
+    const file = fixtureGraph(context, example.fixture);
     const input = documentInput(file("subject.js"), "inspect()");
     assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "execute" }), []);
     assert.deepEqual(resolveInheritedMemberCatalog(input), []);
@@ -119,15 +97,7 @@ for (const example of [
 }
 
 test("FIX-03: aliased providers preserve strict/permissive discovery and precedence", (context) => {
-  const file = moduleGraph(context, {
-    "root.js": `export class Root {
-  execute() {}
-  configure() { this.dynamic = true; }
-}
-export class Middle extends Root { execute() {} }`,
-    "barrel.js": "export { Middle as Public } from './root.js';",
-    "subject.js": "import { Public as Base } from './barrel.js'; class Subject extends Base { inspect() {} }"
-  });
+  const file = fixtureGraph(context, "scenarios/static/module-identities/aliased-providers-preserve-strict-permissive-discovery-and-precedence");
   for (const includeMethodAssignedFields of [false, true]) {
     const input = { ...documentInput(file("subject.js"), "inspect()"), includeMethodAssignedFields };
     const origins = resolveMemberOrigins({ ...input, memberName: "execute" });
@@ -143,14 +113,7 @@ export class Middle extends Root { execute() {} }`,
 
 for (const injector of [false, true]) {
   test(`FIX-03: terminates renamed ${injector ? "injector" : "provider"} reexport cycles`, (context) => {
-    const file = moduleGraph(context, {
-      "a.js": "export { Second as First } from './b.js';",
-      "b.js": "export { First as Second } from './a.js';",
-      "base.js": "import { First as apply } from './a.js'; export class Base { constructor() { apply(this); } }",
-      "subject.js": injector
-        ? "import { Base } from './base.js'; class Subject extends Base { inspect() {} }"
-        : "import { First as Base } from './a.js'; class Subject extends Base { inspect() {} }"
-    });
+    const file = fixtureGraph(context, `scenarios/static/module-identities/cycles/${injector ? "injector" : "provider"}`);
     const input = documentInput(file("subject.js"), "inspect()");
     assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "missing" }), []);
     assert.deepEqual(resolveInheritedMemberCatalog(input), []);
@@ -158,13 +121,7 @@ for (const injector of [false, true]) {
 }
 
 test("FIX-03: namespace injector calls do not fall back to a same-named local function", (context) => {
-  const file = moduleGraph(context, {
-    "root.js": "export function other(target) { target.other = true; }",
-    "subject.js": `import * as ns from './root.js';
-function install(target) { target.foreign = true; }
-class Base { constructor() { ns.install(this); ns.sub.install(this); } }
-class Subject extends Base { inspect() {} }`
-  });
+  const file = fixtureGraph(context, "scenarios/static/module-identities/namespace-injector-calls-do-not-fall-back-to-a-same-named-local-function");
   const input = documentInput(file("subject.js"), "inspect()");
   assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "foreign" }), []);
   assert.deepEqual(resolveInheritedMemberCatalog(input), []);

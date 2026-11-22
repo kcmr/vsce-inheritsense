@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01, FIX-01 through FIX-03, and REF-01 through REF-02 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-03, and REF-01 through REF-02 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -212,7 +212,7 @@ and tooling. These priorities are not security-severity ratings.
   Those five reproductions were subsequently fixed under FIX-01 through FIX-03.
   Extension-host integration tests are required when modifying provider behavior; see [test scope](../../../test/README.md).
 
-- [ ] **TEST-02 · P2 · Share on-disk test scenarios with extension debugging.**
+- [x] **TEST-02 · P2 · Share on-disk test scenarios with extension debugging.**
   Move JavaScript source used by tests from inline strings into organized files
   under `test/fixtures/`, so the same scenarios can be opened in an Extension
   Development Host for manual hover, definition, completion, and trace checks.
@@ -226,6 +226,12 @@ and tooling. These priorities are not security-severity ratings.
   static-analysis-only scenarios and keep them separate from runnable examples.
   Automated tests must exercise the same fixture source used for manual debugging;
   verify the test suite and representative scenarios in extension debug mode.
+  Completed 2026-11-22 on `test/shared-debug-fixtures`; see
+  [Shared debug fixtures](../completed/2026-11-22-shared-debug-fixtures.md).
+  Migrated 87 source scenarios into shared fixtures; 104 tests pass, no TODOs;
+  types, lint, and new-code complexity checks pass with 6 legacy lint warnings.
+  The user checked the files with the extension in debug mode and confirmed the
+  expected results on 2026-11-22.
 
 ## Proposed execution order
 
@@ -283,3 +289,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-21 | FIX-03 completed | Separate import/export identities; alias/default/namespace provider and injector resolution; 79 passing tests, no TODOs; types and lint pass. |
 | 2026-11-22 | REF-01 completed | Shared lazy resolver traversal; seven contract tests pass before/after; 86 passing tests, no TODOs; types pass; lint has 10 accepted complexity warnings. |
 | 2026-11-22 | REF-02 completed | Shared AST/member helpers and parser-only declarations; constructor inconsistency reproduced and fixed; 104 passing tests, no TODOs; types pass; new modules pass strict complexity checks; lint has 6 legacy warnings. |
+| 2026-11-22 | TEST-02 completed | Shared on-disk scenarios and debug walkthrough; 104 passing tests, no TODOs; types/lint/complexity checks pass; user confirmed expected debug-mode results. |

@@ -1,0 +1,2 @@
+import Base from './barrel.js';
+class Subject extends Base { inspect() {} }

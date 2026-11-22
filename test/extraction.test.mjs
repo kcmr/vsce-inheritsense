@@ -2,45 +2,24 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { extractFileSymbols } from "../dist/parser/symbols.js";
 import { resolveMemberOrigins, resolveInheritedMemberCatalog } from "../dist/resolver/memberResolver.js";
-import { assertOrigin, documentInput, moduleGraph, sourceLine } from "./helpers.mjs";
-
-const body = `
-  constructor() {
-    this.initialized = true;
-    const arrow = () => { this.lexical = true; };
-    function other() { this.foreign = true; }
-  }
-  execute() {}
-  get value() { return 1; }
-  set value(next) {}
-  'literal-method'() {}
-  'literal-field' = true;
-  #privateField = true;
-  [dynamicKey]() {}
-  static get properties() { return { declared: {}, 'literal-property': {} }; }
-  configure() { this.dynamic = true; }
-  static setup() { this.staticAssigned = true; }
-`;
+import { assertOrigin, documentInput, sourceLine, fixtureGraph, fixtureSource } from "./helpers.mjs";
 
 const factories = [
-  ["named arrow", `export const Base = parent => class { ${body} };`, "Base"],
-  ["wrapped arrow", `export const Base = wrap(parent => class { ${body} });`, "Base"],
-  ["function return", `export function Base() { return class { ${body} }; }`, "Base"],
-  ["nested returns", `const Base = () => { return () => { return class { ${body} }; }; }; export { Base };`, "Base"],
-  ["callee factory", `export const Base = (() => class { ${body} })();`, "Base"],
-  ["default arrow", `export default parent => class { ${body} };`, "default"],
-  ["default function", `export default function Factory() { return class { ${body} }; }`, "Factory"],
-  ["class expression", `export const Base = class { ${body} };`, "Base"]
+  ["named arrow", "scenarios/static/extraction/named-arrow", "Base"],
+  ["wrapped arrow", "scenarios/static/extraction/wrapped-arrow", "Base"],
+  ["function return", "scenarios/static/extraction/function-return", "Base"],
+  ["nested returns", "scenarios/static/extraction/nested-returns", "Base"],
+  ["callee factory", "scenarios/static/extraction/callee-factory", "Base"],
+  ["default arrow", "scenarios/static/extraction/default-arrow", "default"],
+  ["default function", "scenarios/static/extraction/default-function", "Factory"],
+  ["class expression", "scenarios/static/extraction/class-expression", "Base"]
 ];
 
-for (const [label, sourceCode, ownerName] of factories) {
+for (const [label, fixture, ownerName] of factories) {
   for (const includeMethodAssignedFields of [false, true]) {
     test(`REF-02: ${label} extraction preserves members in ${includeMethodAssignedFields ? "permissive" : "strict"} mode`, (context) => {
-      const file = moduleGraph(context, {
-        "base.js": sourceCode,
-        "subject.js": `import ${ownerName === "Base" ? "{ Base }" : "Base"} from './base.js';
-class Subject extends Base { inspect() {} }`
-      });
+      const file = fixtureGraph(context, fixture);
+      const sourceCode = fixtureSource(`${fixture}/base.js`);
       const input = { ...documentInput(file("subject.js"), "inspect()"), includeMethodAssignedFields, includeCurrentClass: false };
       const members = [
         ["execute", "method", "execute()"],
@@ -73,29 +52,14 @@ class Subject extends Base { inspect() {} }`
 }
 
 test("REF-02: inherited constructors are excluded consistently from lookup and catalogs", (context) => {
-  const file = moduleGraph(context, {
-    "base.js": "export const Base = () => class { constructor() {} };",
-    "subject.js": "import { Base } from './base.js'; class Subject extends Base { inspect() {} }"
-  });
+  const file = fixtureGraph(context, "scenarios/static/extraction/inherited-constructors-are-excluded-consistently-from-lookup-and-catalogs");
   const input = documentInput(file("subject.js"), "inspect()");
   assert.deepEqual(resolveInheritedMemberCatalog(input), []);
   assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "constructor" }), []);
 });
 
 test("REF-02: class and injector deduplication retain their distinct source and kind contracts", () => {
-  const source = `const bag = { run: () => {}, 'label': true };
-function install(target) {
-  target.run = () => {};
-  target.run = () => {};
-  Object.entries(bag).forEach(([key, value]) => { target[key] = value; });
-}
-class Base {
-  constructor() { this.run = () => {}; ns.install(this); ns.install(this); }
-  run() {}
-  run() {}
-  get value() { return 1; }
-  set value(next) {}
-}`;
+  const source = fixtureSource("scenarios/static/extraction/class-and-injector-deduplication-retain-their-distinct-source-and-kind-contracts/subject.js");
   const symbols = extractFileSymbols(source, "contracts.js");
   assert.deepEqual(symbols.classes[0].members.map(({ name, kind }) => [name, kind]), [["run", "method"], ["value", "getter"], ["value", "setter"], ["run", "field"]]);
   assert.equal(symbols.classes[0].members[0].line, sourceLine(source, "  run()"));

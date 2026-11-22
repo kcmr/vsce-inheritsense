@@ -178,6 +178,11 @@ factory without caching or deduplication. It is not a production implementation.
 Its contract follow-up remains in the
 [quality register](exec-plans/backlog/2026-11-21-quality-and-public-release.md).
 
+Additional parser/resolver scenarios now live under `test/fixtures/scenarios/`.
+Tests read the same files that can be opened in the Extension Development Host;
+see [shared fixture categories and debug walkthrough](../test/README.md#shared-source-fixtures).
+Static-only and malformed inputs are separated from the executable component examples.
+
 ## 8. Development plan (next steps)
 
 Parser/resolver tests and strict/permissive coverage run with `pnpm test`;

@@ -24,6 +24,9 @@
 - Keep instructions concise; link to the source of truth instead of duplicating it.
 - Use neutral, public-shareable examples. Preserve the technical patterns under test.
 - Use pnpm and preserve unrelated workspace changes. Do not edit generated `dist/` directly.
+- Do not use Computer Use or manipulate application UIs unless the user explicitly
+  requests it. The user performs UI checks; provide reproducible steps and record
+  their reported results. Use non-UI tools for automated verification.
 - Before implementing each new backlog item, create a dedicated branch and an
   active plan following [the plan workflow](docs/agent-harness/workflows.md).
 - Keep plans current during work. Move a plan to `completed/` only when its full
@@ -42,6 +45,8 @@
 - Verify new modules with `pnpm exec eslint <files> --rule 'complexity: [error, 15]'`.
 - Tests: `pnpm test` compiles current sources and runs the Node suite. Report
   TODO reproductions separately from passing tests; promote them when fixing bugs.
+- Keep test source scenarios in `test/fixtures/` and read them from tests so they
+  can also be opened for extension debugging; see [test instructions](test/README.md).
 - `pnpm compile` writes `dist/`. `pnpm package` also increments the package
   version through `prepackage`; use it only for an intended packaging task.
 - Report checks run, outcomes, and material limitations. Documentation-only work

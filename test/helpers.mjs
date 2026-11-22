@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
@@ -19,15 +19,20 @@ export function documentInput(filePath, marker) {
   return { filePath, sourceCode, line: sourceLine(sourceCode, marker) };
 }
 
-export function moduleGraph(context, files) {
+export function fixtureSource(relativePath) {
+  return readFileSync(fixturePath(relativePath), "utf8");
+}
+
+export function fixtureGraph(context, relativePath) {
   const root = realpathSync(mkdtempSync(path.join(tmpdir(), "inheritsense-test-")));
   context.after(() => rmSync(root, { recursive: true, force: true }));
-  for (const [relativePath, source] of Object.entries(files)) {
-    const filePath = path.join(root, relativePath);
-    mkdirSync(path.dirname(filePath), { recursive: true });
-    writeFileSync(filePath, source);
+  cpSync(fixturePath(relativePath), root, { recursive: true });
+  // Keep package fixtures tracked without checking a node_modules tree into Git.
+  const dependencies = path.join(root, "package-dependencies");
+  if (existsSync(dependencies)) {
+    renameSync(dependencies, path.join(root, "node_modules"));
   }
-  return (relativePath) => path.join(root, relativePath);
+  return (relativeFile) => path.join(root, relativeFile);
 }
 
 export function assertOrigin(origin, { memberName, kind, ownerName, filePath, marker, confidence }) {

@@ -4,7 +4,8 @@ import tseslint from "typescript-eslint";
 
 export default defineConfig(
   {
-    ignores: ["dist/**", "node_modules/**"]
+    // Scenario files are source data, including intentionally invalid syntax.
+    ignores: ["dist/**", "node_modules/**", "test/fixtures/scenarios/**"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

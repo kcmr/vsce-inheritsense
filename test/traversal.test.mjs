@@ -1,25 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolveMemberOrigins, resolveInheritedMemberCatalog } from "../dist/resolver/memberResolver.js";
-import { assertOrigin, documentInput, moduleGraph } from "./helpers.mjs";
+import { assertOrigin, documentInput, fixtureGraph } from "./helpers.mjs";
 
 for (const includeMethodAssignedFields of [false, true]) {
   test(`REF-01: lookup/catalog retain precedence and metadata in ${includeMethodAssignedFields ? "permissive" : "strict"} mode`, (context) => {
-    const file = moduleGraph(context, {
-      "install.js": `export function install(target) { target.injected = true; target.execute = () => {}; }`,
-      "root.js": `export class Root { execute() {} inherited() {} }
-export { install as PublicInstall } from './install.js';`,
-      "base.js": `import { Root as Parent, PublicInstall as apply } from './root.js';
-export class Base extends Parent {
-  constructor() { apply(this); }
-  execute() {}
-  configure() { this.dynamic = true; }
-  get value() { return 1; }
-  set value(next) {}
-}`,
-      "subject.js": `import { Base as Parent } from './base.js';
-class Subject extends Parent { inspect() {} }`
-    });
+    const file = fixtureGraph(context, "scenarios/static/traversal/precedence-and-modes");
     const input = { ...documentInput(file("subject.js"), "inspect()"), includeMethodAssignedFields };
     const catalog = resolveInheritedMemberCatalog(input);
     for (const [memberName, ownerName, kind, originFile, marker, confidence] of [
@@ -43,13 +29,7 @@ class Subject extends Parent { inspect() {} }`
 }
 
 test("REF-01: lookup keeps one match per root provider and catalog deduplicates shared ancestors", (context) => {
-  const file = moduleGraph(context, {
-    "providers.js": `class Shared { execute() {} sharedOnly() {} }
-export const Outer = parent => class extends Shared { execute() {} };
-export class Inner extends Shared { execute() {} }`,
-    "subject.js": `import { Outer, Inner } from './providers.js';
-class Subject extends Outer(Inner) { execute() {} inspect() {} }`
-  });
+  const file = fixtureGraph(context, "scenarios/static/traversal/lookup-keeps-one-match-per-root-provider-and-catalog-deduplicates-shared-ancestors");
   const input = documentInput(file("subject.js"), "inspect()");
   assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "execute" }).map(({ ownerName }) => ownerName), ["Subject", "Outer", "Inner"]);
   const inherited = resolveMemberOrigins({ ...input, memberName: "execute", includeCurrentClass: false });
@@ -63,21 +43,7 @@ class Subject extends Outer(Inner) { execute() {} inspect() {} }`
 
 for (const stage of ["declaration", "injector", "nested provider"]) {
   test(`REF-01: lookup stops after a ${stage} match before parsing later branches`, (context) => {
-    const sources = {
-      declaration: `import { Broken } from './broken.js';
-export class Base extends Broken { execute() {} }`,
-      injector: `import { Broken } from './broken.js';
-function install(target) { target.execute = () => {}; }
-export class Base { constructor() { install(this); Broken(this); } }`,
-      "nested provider": `import { Broken } from './broken.js';
-class Ready { execute() {} }
-export class Base extends Ready(Broken) {}`
-    };
-    const file = moduleGraph(context, {
-      "broken.js": "class {",
-      "base.js": sources[stage],
-      "subject.js": "import { Base } from './base.js'; class Subject extends Base { inspect() {} }"
-    });
+    const file = fixtureGraph(context, `scenarios/malformed/traversal/early-exit-${stage.replaceAll(" ", "-")}`);
     const input = documentInput(file("subject.js"), "inspect()");
     const origins = resolveMemberOrigins({ ...input, memberName: "execute" });
     assert.equal(origins.length, 1);
@@ -89,12 +55,7 @@ export class Base extends Ready(Broken) {}`
 }
 
 test("REF-01: a match in one root provider does not suppress lookup in later root providers", (context) => {
-  const file = moduleGraph(context, {
-    "broken.js": "class {",
-    "subject.js": `import { Broken } from './broken.js';
-const Ready = parent => class { execute() {} };
-class Subject extends Ready(Broken) { inspect() {} }`
-  });
+  const file = fixtureGraph(context, "scenarios/malformed/traversal/a-match-in-one-root-provider-does-not-suppress-lookup-in-later-root-providers");
   const input = documentInput(file("subject.js"), "inspect()");
   assert.throws(() => resolveMemberOrigins({ ...input, memberName: "execute" }), SyntaxError);
 });

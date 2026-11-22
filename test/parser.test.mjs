@@ -4,18 +4,10 @@ import { test } from "node:test";
 import { parseJavaScript } from "../dist/parser/ast.js";
 import { extractFileSymbols } from "../dist/parser/symbols.js";
 import { resolveProvidersFromSuperClass } from "../dist/resolver/inheritanceResolver.js";
-import { fixturePath, sourceLine } from "./helpers.mjs";
+import { fixturePath, sourceLine, fixtureSource } from "./helpers.mjs";
 
 test("extracts methods, accessors, literal keys, and explicit/constructor fields with locations", () => {
-  const source = `export class Example {
-    count = 0;
-    constructor() { this.ready = true; }
-    run() {}
-    get value() { return this.count; }
-    set value(next) { this.count = next; }
-    "literalMethod"() {}
-    later() { this.dynamic = true; }
-  }`;
+  const source = fixtureSource("scenarios/static/parser/extracts-methods-accessors-literal-keys-and-explicit-constructor-fields-with-locations/subject.js");
   const { classes } = extractFileSymbols(source, "example.js");
   assert.equal(classes.length, 1);
   assert.equal(classes[0].name, "Example");
@@ -64,10 +56,7 @@ test("permissive mode discovers assignments inside methods and promise callbacks
 });
 
 test("permissive mode does not expose assignments to static this as instance fields", () => {
-  const source = `class Example {
-    static configure() { this.staticOnly = true; }
-    configure() { this.instanceOnly = true; }
-  }`;
+  const source = fixtureSource("scenarios/static/parser/permissive-mode-does-not-expose-assignments-to-static-this-as-instance-fields/subject.js");
   const { members } = extractFileSymbols(source, "example.js", {
     includeMethodAssignedFields: true
   }).classes[0];
@@ -76,11 +65,7 @@ test("permissive mode does not expose assignments to static this as instance fie
 });
 
 test("recognizes block, expression, and wrapped class-returning factories", () => {
-  const source = `
-    const ExpressionFactory = parent => class extends parent { first() {} };
-    function BlockFactory(parent) { return class extends parent { second() {} }; }
-    export const WrappedFactory = wrapper(parent => class extends parent { third() {} });
-  `;
+  const source = fixtureSource("scenarios/static/parser/recognizes-block-expression-and-wrapped-class-returning-factories/subject.js");
   const { classes } = extractFileSymbols(source, "factories.js");
   assert.deepEqual(classes.map(({ name, members }) => [name, members[0].name]), [
     ["ExpressionFactory", "first"], ["BlockFactory", "second"], ["WrappedFactory", "third"]
@@ -88,17 +73,7 @@ test("recognizes block, expression, and wrapped class-returning factories", () =
 });
 
 test("extracts direct, delegated, and dynamic-bag injectors without looping on delegation cycles", () => {
-  const source = `
-    const members = { execute: () => {}, enabled: true };
-    members.label = "sample";
-    function copy(target) {
-      Object.entries(members).forEach(([key, value]) => { target[key] = value; });
-    }
-    function direct(target) { target.reset = () => {}; copy(target); }
-    function install(target) { direct(target); cycle(target); }
-    function cycle(target) { install(target); }
-    class Example { constructor() { install(this); install(this); } }
-  `;
+  const source = fixtureSource("scenarios/static/parser/extracts-direct-delegated-and-dynamic-bag-injectors-without-looping-on-delegation-cycles/subject.js");
   const { injectors, classes } = extractFileSymbols(source, "injectors.js");
   assert.deepEqual(injectors.get("copy").map(({ name, kind }) => [name, kind]), [
     ["execute", "method"], ["enabled", "field"], ["label", "field"]
@@ -110,7 +85,7 @@ test("extracts direct, delegated, and dynamic-bag injectors without looping on d
 });
 
 test("collects nested providers in composition order and deduplicates references", () => {
-  const source = "class Example extends outer(namespace.inner(Base), Base) {}";
+  const source = fixtureSource("scenarios/static/parser/collects-nested-providers-in-composition-order-and-deduplicates-references/subject.js");
   const superClass = extractFileSymbols(source, "example.js").classes[0].superClass;
   assert.deepEqual(resolveProvidersFromSuperClass(superClass), [
     { localName: "outer", notes: "factory/mixin call" },
@@ -124,5 +99,5 @@ test("preserves JSDoc comments and reports unrecoverable syntax errors", () => {
   const filePath = fixturePath("mixins/event-mixin.js");
   const ast = parseJavaScript(readFileSync(filePath, "utf8"), filePath);
   assert(ast.comments.some((comment) => comment.value.includes("@param {Event} event")));
-  assert.throws(() => parseJavaScript("class {", "invalid.js"), SyntaxError);
+  assert.throws(() => parseJavaScript(fixtureSource("scenarios/malformed/parser/unrecoverable-syntax/invalid.js"), "invalid.js"), SyntaxError);
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolveMemberOrigins, resolveInheritedMemberCatalog } from "../dist/resolver/memberResolver.js";
-import { assertOrigin, documentInput, fixturePath, moduleGraph } from "./helpers.mjs";
+import { assertOrigin, documentInput, fixturePath, fixtureGraph } from "./helpers.mjs";
 
 const sampleInput = () => ({
   ...documentInput(fixturePath("components/sample-component.js"), "this.loadResource()"),
@@ -72,14 +72,7 @@ test("lookup includes the current class by default and honors exclusion", () => 
 });
 
 test("resolves imported injectors delegated through another function", (context) => {
-  const file = moduleGraph(context, {
-    "install.js": `function add(target) { target.execute = () => {}; }
-export function install(target) { add(target); }`,
-    "base.js": `import { install } from './install.js';
-export class Base { constructor() { install(this); } }`,
-    "subject.js": `import { Base } from './base.js';
-class Subject extends Base { inspect() { this.execute(); } }`
-  });
+  const file = fixtureGraph(context, "scenarios/static/resolver/resolves-imported-injectors-delegated-through-another-function");
   const input = documentInput(file("subject.js"), "inspect()");
   const origins = resolveMemberOrigins({ ...input, memberName: "execute" });
   assert.equal(origins.length, 1);
@@ -92,14 +85,7 @@ class Subject extends Base { inspect() { this.execute(); } }`
 });
 
 test("resolves a local base-class injector from a dynamic member bag", (context) => {
-  const file = moduleGraph(context, {
-    "subject.js": `const members = { execute: () => {}, ready: true };
-function install(target) {
-  Object.entries(members).forEach(([key, value]) => { target[key] = value; });
-}
-class Base { constructor() { install(this); } }
-class Subject extends Base { inspect() { this.execute(); } }`
-  });
+  const file = fixtureGraph(context, "scenarios/static/resolver/resolves-a-local-base-class-injector-from-a-dynamic-member-bag");
   const input = documentInput(file("subject.js"), "inspect()");
   for (const [memberName, kind] of [["execute", "method"], ["ready", "field"]]) {
     const origins = resolveMemberOrigins({ ...input, memberName });
@@ -112,12 +98,7 @@ class Subject extends Base { inspect() { this.execute(); } }`
 });
 
 test("resolves multi-file inheritance and same-name reexports", (context) => {
-  const file = moduleGraph(context, {
-    "root.js": "export class Root { execute() {} }",
-    "middle.js": "import { Root } from './root.js'; export class Middle extends Root {}",
-    "index.js": "export { Middle } from './middle.js';",
-    "subject.js": "import { Middle } from './index.js'; class Subject extends Middle { inspect() {} }"
-  });
+  const file = fixtureGraph(context, "scenarios/static/resolver/resolves-multi-file-inheritance-and-same-name-reexports");
   const input = documentInput(file("subject.js"), "inspect()");
   const origins = resolveMemberOrigins({ ...input, memberName: "execute" });
   assert.equal(origins.length, 1);
@@ -129,11 +110,7 @@ test("resolves multi-file inheritance and same-name reexports", (context) => {
 });
 
 test("terminates on cyclic imported inheritance", (context) => {
-  const file = moduleGraph(context, {
-    "a.js": "import { B } from './b.js'; export class A extends B { fromA() {} }",
-    "b.js": "import { A } from './a.js'; export class B extends A { fromB() {} }",
-    "subject.js": "import { A } from './a.js'; class Subject extends A { inspect() {} }"
-  });
+  const file = fixtureGraph(context, "scenarios/static/resolver/terminates-on-cyclic-imported-inheritance");
   const input = documentInput(file("subject.js"), "inspect()");
   assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "missing" }), []);
   assert.deepEqual(resolveInheritedMemberCatalog(input).map((origin) => origin.memberName).sort(), ["fromA", "fromB"]);
@@ -147,9 +124,7 @@ test("returns no origins outside a class or for a missing member", () => {
 });
 
 test("missing imported files produce empty results without throwing", (context) => {
-  const file = moduleGraph(context, {
-    "subject.js": "import { Missing } from './missing.js'; class Subject extends Missing { inspect() {} }"
-  });
+  const file = fixtureGraph(context, "scenarios/static/resolver/missing-imported-files-produce-empty-results-without-throwing");
   const input = documentInput(file("subject.js"), "inspect()");
   assert.deepEqual(resolveMemberOrigins({ ...input, memberName: "execute" }), []);
   assert.deepEqual(resolveInheritedMemberCatalog(input), []);
