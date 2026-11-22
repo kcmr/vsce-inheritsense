@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, and DEP-04 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, and DEP-04 through DEP-05 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -79,11 +79,19 @@ and tooling. These priorities are not security-severity ratings.
   operation in the isolated VS Code 1.95.0. Duplicate native/extension definition
   destinations also occur in the current editor and are tracked as FIX-04.
 
-- [ ] **DEP-05 · P2 · Align Node types and runtime support.**
+- [x] **DEP-05 · P2 · Align Node types and runtime support.**
   `@types/node` is `26.6.6`; `engines.node` supports Node 24 onward. Also review
   the minimum VS Code extension-host runtime, which is independent of the Node
   version used for development or packaging.
   **Acceptance:** type definitions and runtime APIs match supported environments.
+  Completed 2026-11-22 on `chore/node-runtime-compatibility`; see the
+  [internal audit](../completed/2026-11-22-node-runtime-compatibility.md).
+  Keep the current Node 26.13.1, Node 26 types, and development minimum >=24.
+  Production source passes a temporary Node 20 type-surface check; actual Node
+  APIs pass on 20.18.0/24.0.0/26.13.1; all 139 tests pass on isolated Node 24.0.0.
+  No project dependency/configuration or permanent verification code changes.
+  The newer development types are not a permanent minimum-runtime API ceiling;
+  future production Node API changes require another internal check.
 
 ### Duplication and complexity
 
@@ -331,3 +339,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | REF-04 completed | Shared VS Code integration helpers and per-origin paths; resource setting scopes; 127 passing Node tests; types/lint/complexity pass; user confirmed manual real-host checks. Automated host suite retained without a passing post-correction run. |
 | 2026-11-22 | DEP-04 completed; FIX-04 reproduced | Exact minimum API types and version guard; 128 development/116 embedded-runtime tests pass; user confirmed actual 1.95.0 operation. Native/extension duplicate target ranges reproduced and tracked separately. |
 | 2026-11-22 | FIX-04 completed | Precise opt-in declaration ranges and guarded native-provider coexistence; 139 development/122 minimum-runtime tests pass; types/lint/complexity pass; user confirmed current-editor navigation. Fresh minimum UI and automated host reruns deferred. |
+| 2026-11-22 | DEP-05 completed | Internal Node API/type audit; retain Node 26/types and >=24 development floor; 139 tests pass on isolated Node 24.0.0. Only execution-plan documentation changes; future API additions require renewed baseline verification. |
