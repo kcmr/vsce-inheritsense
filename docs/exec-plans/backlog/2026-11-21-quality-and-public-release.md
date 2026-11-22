@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01, FIX-01 through FIX-03, and REF-01 completed; remaining tasks pending.
+Status: Backlog. TEST-01, FIX-01 through FIX-03, and REF-01 through REF-02 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -93,7 +93,7 @@ and tooling. These priorities are not security-severity ratings.
   types pass; lint passes with 10 accepted complexity warnings. Initializer
   extraction differences remain under REF-02.
 
-- [ ] **REF-02 · P2 · Consolidate AST helpers and member extraction.**
+- [x] **REF-02 · P2 · Consolidate AST helpers and member extraction.**
   `findClassFromExpression` is nearly duplicated between parser and resolver.
   Expression-to-`ProviderRef` conversion is repeated in parser and inheritance
   resolution. `symbols.ts` has two similar recursive walkers and repeated name,
@@ -101,6 +101,14 @@ and tooling. These priorities are not security-severity ratings.
   uses partially different rules from the parser.
   **Acceptance:** share equivalent behavior, document intentional differences,
   and preserve getters, setters, fields, literal keys, and strict/permissive modes.
+  Completed 2026-11-22 on `refactor/shared-ast-member-extraction`; see
+  [Shared AST and member extraction](../completed/2026-11-22-shared-ast-member-extraction.md).
+  Shared AST traversal, class discovery, provider references, names, assignment
+  kinds, and deduplication. Lookup and catalogs use parser declarations; removed
+  the fallback that exposed constructors only in lookup. Eighteen new tests;
+  `pnpm test`: 104 passing, no TODOs; types pass; lint passes with 6 legacy
+  complexity warnings. New/extracted functions pass complexity checks at error
+  severity with a limit of 15. Scope and deduplication differences remain explicit.
 
 - [ ] **REF-03 · P2 · Split functions with high complexity.**
   Separate imports/exports, explicit members, declarative properties,
@@ -220,7 +228,7 @@ and tooling. These priorities are not security-severity ratings.
 
 - [ ] Fixture helper contracts are explicit and verified.
 - [x] Recorded resolution failures are reproduced and fixed with regression tests.
-- [ ] Individual lookup and catalog use consistent, verified resolution rules.
+- [x] Individual lookup and catalog use consistent, verified resolution rules.
 - [ ] Dependencies are justified and compatible with supported environments.
 - [ ] Types, lint, and relevant tests pass; remaining limitations are documented.
 - [ ] Closed tasks include evidence, a completion date, and a change reference.
@@ -261,3 +269,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-21 | FIX-02 completed | Recursive local-provider traversal; 38 passing tests, 2 FIX-03 TODO reproductions; types and lint pass. |
 | 2026-11-21 | FIX-03 completed | Separate import/export identities; alias/default/namespace provider and injector resolution; 79 passing tests, no TODOs; types and lint pass. |
 | 2026-11-22 | REF-01 completed | Shared lazy resolver traversal; seven contract tests pass before/after; 86 passing tests, no TODOs; types pass; lint has 10 accepted complexity warnings. |
+| 2026-11-22 | REF-02 completed | Shared AST/member helpers and parser-only declarations; constructor inconsistency reproduced and fixed; 104 passing tests, no TODOs; types pass; new modules pass strict complexity checks; lint has 6 legacy warnings. |

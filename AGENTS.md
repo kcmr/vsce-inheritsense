@@ -24,9 +24,14 @@
 - Keep instructions concise; link to the source of truth instead of duplicating it.
 - Use neutral, public-shareable examples. Preserve the technical patterns under test.
 - Use pnpm and preserve unrelated workspace changes. Do not edit generated `dist/` directly.
+- Before implementing each new backlog item, create a dedicated branch and an
+  active plan following [the plan workflow](docs/agent-harness/workflows.md).
 - Keep plans current during work. Move a plan to `completed/` only when its full
   scope is finished and verified; completing one checklist item is not enough.
 - Turn recurring mistakes into a focused instruction, test, or tooling check.
+- New functions, including extracted or relocated code, must have ESLint
+  cyclomatic complexity at most 15. Refactor before handoff; do not suppress the
+  rule or raise the limit. Existing warnings are accepted only for legacy functions.
 - Finish each change with [one critical self-review and a proposed commit](docs/agent-harness/review-and-commit.md).
   Wait for the user's manual review and explicit approval before committing.
 
@@ -34,6 +39,7 @@
 
 - Types without generated output: `pnpm exec tsc --noEmit -p .`.
 - Lint: `pnpm lint`.
+- Verify new modules with `pnpm exec eslint <files> --rule 'complexity: [error, 15]'`.
 - Tests: `pnpm test` compiles current sources and runs the Node suite. Report
   TODO reproductions separately from passing tests; promote them when fixing bugs.
 - `pnpm compile` writes `dist/`. `pnpm package` also increments the package

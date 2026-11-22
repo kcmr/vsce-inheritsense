@@ -7,6 +7,9 @@ its version, and no VS Code extension host is required.
 
 ## Coverage
 
+- `extraction.test.mjs`: shared class/factory extraction across eight expression
+  forms in strict/permissive modes, member kinds and literal keys, source metadata,
+  lookup/catalog parity, constructor exclusion, and class/injector deduplication.
 - `parser.test.mjs`: member kinds and source locations, constructor/declarative
   fields, strict/permissive discovery, factories, injectors, providers, and JSDoc.
 - `resolver.test.mjs`: individual lookup and completion catalogs, origin metadata,

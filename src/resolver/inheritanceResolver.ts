@@ -1,20 +1,9 @@
 import * as t from "@babel/types";
 import type { ProviderRef } from "../model/types";
-
-function expressionToProviderRef(expression: t.Expression): ProviderRef | null {
-  if (t.isIdentifier(expression)) {
-    return { localName: expression.name };
-  }
-
-  if (t.isMemberExpression(expression) && !expression.computed && t.isIdentifier(expression.property) && t.isIdentifier(expression.object)) {
-    return { localName: expression.property.name, importLookupName: expression.object.name };
-  }
-
-  return null;
-}
+import { dedupeProviders, expressionToProviderRef } from "../parser/astHelpers";
 
 function collectFromCallExpression(call: t.CallExpression, providers: ProviderRef[]): void {
-  const calleeProvider = expressionToProviderRef(call.callee as t.Expression);
+  const calleeProvider = expressionToProviderRef(call.callee);
   if (calleeProvider) {
     providers.push({
       ...calleeProvider,
@@ -65,13 +54,5 @@ export function resolveProvidersFromExpression(expression: t.Expression | null):
     }
   }
 
-  const seen = new Set<string>();
-  return providers.filter((provider) => {
-    const dedupeKey = `${provider.localName}::${provider.importLookupName ?? ""}`;
-    if (seen.has(dedupeKey)) {
-      return false;
-    }
-    seen.add(dedupeKey);
-    return true;
-  });
+  return dedupeProviders(providers);
 }

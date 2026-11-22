@@ -90,6 +90,17 @@ Out of scope (still pending):
 - `src/parser/ast.ts`
   - Babel parsing
 
+- `src/parser/astHelpers.ts`
+  - shared class discovery, provider references, and prunable AST traversal
+  - lexical-this traversal wraps the generic walker with scope boundaries
+  - receiver-identifier injector analysis uses the generic walker across nested
+    functions, where identifiers can be captured; binding/shadowing inference is deferred
+
+- `src/parser/members.ts`
+  - shared class member names, kinds, declarations, and deduplication
+  - class assignments remain fields; function-valued injector assignments are methods
+  - classes retain the first member per name/kind; injectors retain distinct lines
+
 - `src/parser/symbols.ts`
   - imports/classes/member extraction
   - includes support for:
@@ -115,6 +126,7 @@ Out of scope (still pending):
   - shared lazy traversal through providers, injectors, imports, and reexports;
     lookup stops at the first match within each root provider, while catalogs
     retain all origins in traversal order
+  - both APIs consume parser member declarations; constructors are excluded
 
 - `src/providers/memberOriginHoverProvider.ts`
   - inherited origin hover UI
@@ -173,7 +185,7 @@ see [test instructions and coverage](../test/README.md). The five recorded
 correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
 there are no remaining TODO tests.
 
-1. Consolidate AST helpers and member extraction with behavior coverage.
+1. Reduce parser and hover function complexity (REF-03 in the quality register).
 2. Add hover/definition/completion extension-host tests when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.

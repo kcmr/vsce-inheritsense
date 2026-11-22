@@ -27,6 +27,13 @@ large backlog register, create a focused active plan referencing its task IDs;
 leave the register in backlog and update those entries as work is verified.
 Move the whole register only when its entire scope is being undertaken.
 
+Before implementing each new backlog item, create a dedicated branch using
+`<type>/<short-kebab-case-name>`, consistent with existing branches such as
+`fix/this-assignment-scopes`, `refactor/shared-resolver-traversal`, and
+`test/parser-resolver-coverage`. Create its focused active plan (or move a standalone
+backlog plan to `active/`) before changing implementation files. When resuming an
+active item, reuse its dedicated branch and plan.
+
 ## During work
 
 - Maintain scope, acceptance criteria, checked tasks, decisions, verification,

@@ -9,98 +9,13 @@ import type {
     ProviderRef
 } from "../model/types";
 import { parseJavaScript } from "./ast";
+import { dedupeProviders, expressionToProviderRef, findClassFromExpression, visitNode, visitThisScope } from "./astHelpers";
+import { assignedMemberKind, dedupeMembers, memberNameFromKey, toMemberDeclarations } from "./members";
+import type { ExtractSymbolsOptions } from "./members";
 
-type AnyClassMember = t.ClassBody["body"][number];
 type AnyFunction = t.FunctionDeclaration | t.FunctionExpression | t.ArrowFunctionExpression;
 
-export interface ExtractSymbolsOptions {
-  includeMethodAssignedFields?: boolean;
-}
-
-function collectThisAssignedFieldsFromNode(node: t.Node): MemberDeclaration[] {
-  const found: MemberDeclaration[] = [];
-
-  visitThisScope(node, (current) => {
-    if (t.isAssignmentExpression(current)) {
-      if (
-        current.operator === "=" &&
-        t.isMemberExpression(current.left) &&
-        !current.left.computed &&
-        t.isThisExpression(current.left.object) &&
-        t.isIdentifier(current.left.property)
-      ) {
-        found.push({
-          name: current.left.property.name,
-          kind: "field",
-          line: current.loc?.start.line ?? 1
-        });
-      }
-    }
-  });
-  return found;
-}
-
-function visitNode(node: t.Node, visitor: (current: t.Node) => boolean | void): void {
-  if (visitor(node) === false) {
-    return;
-  }
-  const keys = t.VISITOR_KEYS[node.type] ?? [];
-  for (const key of keys) {
-    const value = (node as unknown as Record<string, unknown>)[key];
-
-    if (Array.isArray(value)) {
-      for (const child of value) {
-        if (child && typeof child === "object" && "type" in child) {
-          visitNode(child as t.Node, visitor);
-        }
-      }
-      continue;
-    }
-
-    if (value && typeof value === "object" && "type" in value) {
-      visitNode(value as t.Node, visitor);
-    }
-  }
-}
-
-// Follow lexical this through arrows, but stop at functions and class bodies.
-// Heritage and computed keys are evaluated in the enclosing this context.
-function visitThisScope(node: t.Node, visitor: (current: t.Node) => void): void {
-  visitNode(node, (current) => {
-    if (t.isClass(current)) {
-      if (current.superClass) {
-        visitThisScope(current.superClass, visitor);
-      }
-      for (const element of current.body.body) {
-        if ("computed" in element && element.computed && "key" in element) {
-          visitThisScope(element.key, visitor);
-        }
-      }
-      return false;
-    }
-
-    if (t.isFunction(current) && !t.isArrowFunctionExpression(current)) {
-      if (t.isObjectMethod(current) && current.computed) {
-        visitThisScope(current.key, visitor);
-      }
-      return false;
-    }
-
-    visitor(current);
-  });
-}
-
-function toProviderRefFromExpression(expression: t.Expression): ProviderRef | null {
-  if (t.isIdentifier(expression)) {
-    return { localName: expression.name };
-  }
-
-  if (t.isMemberExpression(expression) && !expression.computed && t.isIdentifier(expression.property) && t.isIdentifier(expression.object)) {
-    return { localName: expression.property.name, importLookupName: expression.object.name };
-  }
-
-  return null;
-}
+export type { ExtractSymbolsOptions } from "./members";
 
 function collectClassInjectorCalls(classNode: t.Class): ProviderRef[] {
   const found: ProviderRef[] = [];
@@ -125,38 +40,18 @@ function collectClassInjectorCalls(classNode: t.Class): ProviderRef[] {
         return;
       }
 
-      const provider = toProviderRefFromExpression(callee);
+      const provider = expressionToProviderRef(callee);
       if (provider) {
         found.push(provider);
       }
     });
   }
 
-  const seen = new Set<string>();
-  return found.filter((provider) => {
-    const key = `${provider.localName}::${provider.importLookupName ?? ""}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
+  return dedupeProviders(found);
 }
 
 function moduleName(node: t.Identifier | t.StringLiteral): string {
   return t.isIdentifier(node) ? node.name : node.value;
-}
-
-function memberNameFromKey(key: t.Expression | t.PrivateName): string | null {
-  if (t.isIdentifier(key)) {
-    return key.name;
-  }
-
-  if (t.isStringLiteral(key)) {
-    return key.value;
-  }
-
-  return null;
 }
 
 function collectInjectedMembersFromStatement(
@@ -192,9 +87,7 @@ function collectInjectedMembersFromStatement(
   }
 
   const bag = bagMembers.get(bagName) ?? [];
-  const kind: MemberKind = t.isFunctionExpression(assignment.right) || t.isArrowFunctionExpression(assignment.right)
-    ? "method"
-    : "field";
+  const kind: MemberKind = assignedMemberKind(assignment.right);
 
   bag.push({
     name: memberName,
@@ -224,9 +117,7 @@ function collectBagMembers(programStatements: t.Statement[]): Map<string, Member
             if (!memberName) {
               continue;
             }
-            const kind: MemberKind = t.isFunctionExpression(property.value) || t.isArrowFunctionExpression(property.value)
-              ? "method"
-              : "field";
+            const kind: MemberKind = assignedMemberKind(property.value);
             members.push({
               name: memberName,
               kind,
@@ -420,9 +311,7 @@ function collectFunctionInjectionMeta(
             : null;
 
         if (assignedName) {
-          const kind: MemberKind = t.isFunctionExpression(current.right) || t.isArrowFunctionExpression(current.right)
-            ? "method"
-            : "field";
+          const kind: MemberKind = assignedMemberKind(current.right);
           directMembers.push({
             name: assignedName,
             kind,
@@ -452,18 +341,6 @@ function collectFunctionInjectionMeta(
     directMembers,
     delegatedCalls
   };
-}
-
-function dedupeMembers(members: MemberDeclaration[]): MemberDeclaration[] {
-  const seen = new Set<string>();
-  return members.filter((member) => {
-    const key = `${member.name}:${member.kind}:${member.line}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
 }
 
 function collectInjectors(programStatements: t.Statement[]): Map<string, MemberDeclaration[]> {
@@ -521,153 +398,6 @@ function collectInjectors(programStatements: t.Statement[]): Map<string, MemberD
   return injectors;
 }
 
-function getMemberName(node: AnyClassMember): string | null {
-  if (
-    "key" in node &&
-    "computed" in node &&
-    t.isIdentifier(node.key) &&
-    !node.computed
-  ) {
-    return node.key.name;
-  }
-  if (
-    "key" in node &&
-    "computed" in node &&
-    t.isStringLiteral(node.key) &&
-    !node.computed
-  ) {
-    return node.key.value;
-  }
-  return null;
-}
-
-function getMemberKind(node: AnyClassMember): MemberKind | null {
-  if (t.isClassMethod(node)) {
-    if (node.kind === "method") {
-      return "method";
-    }
-    if (node.kind === "get") {
-      return "getter";
-    }
-    if (node.kind === "set") {
-      return "setter";
-    }
-    return null;
-  }
-
-  if (t.isClassProperty(node) || t.isClassPrivateProperty(node)) {
-    return "field";
-  }
-
-  return null;
-}
-
-function toMemberDeclarations(classNode: t.Class, options?: ExtractSymbolsOptions): MemberDeclaration[] {
-  const includeMethodAssignedFields = options?.includeMethodAssignedFields ?? false;
-  const members: MemberDeclaration[] = [];
-
-  for (const element of classNode.body.body) {
-    const kind = getMemberKind(element);
-    if (!kind) {
-      continue;
-    }
-
-    const name = getMemberName(element);
-    if (!name) {
-      continue;
-    }
-
-    members.push({
-      name,
-      kind,
-      line: element.loc?.start.line ?? classNode.loc?.start.line ?? 1
-    });
-  }
-
-  for (const element of classNode.body.body) {
-    if (!t.isClassMethod(element)) {
-      continue;
-    }
-
-    if (!element.static || element.kind !== "get") {
-      continue;
-    }
-
-    if (!t.isIdentifier(element.key) || element.key.name !== "properties") {
-      continue;
-    }
-
-    if (!t.isBlockStatement(element.body)) {
-      continue;
-    }
-
-    for (const statement of element.body.body) {
-      if (!t.isReturnStatement(statement) || !statement.argument || !t.isObjectExpression(statement.argument)) {
-        continue;
-      }
-
-      for (const property of statement.argument.properties) {
-        if (!t.isObjectProperty(property) || property.computed) {
-          continue;
-        }
-
-        let propertyName: string | null = null;
-        if (t.isIdentifier(property.key)) {
-          propertyName = property.key.name;
-        } else if (t.isStringLiteral(property.key)) {
-          propertyName = property.key.value;
-        }
-
-        if (!propertyName) {
-          continue;
-        }
-
-        members.push({
-          name: propertyName,
-          kind: "field",
-          line: property.loc?.start.line ?? element.loc?.start.line ?? classNode.loc?.start.line ?? 1
-        });
-      }
-    }
-  }
-
-  for (const element of classNode.body.body) {
-    if (!t.isClassMethod(element)) {
-      continue;
-    }
-
-    if (element.kind !== "constructor" && !includeMethodAssignedFields) {
-      continue;
-    }
-
-    if (element.kind !== "constructor" && element.static) {
-      continue;
-    }
-
-    if (!t.isBlockStatement(element.body)) {
-      continue;
-    }
-
-    const assignedMembers = collectThisAssignedFieldsFromNode(element.body);
-    for (const assignedMember of assignedMembers) {
-      members.push({
-        ...assignedMember,
-        line: assignedMember.line ?? element.loc?.start.line ?? classNode.loc?.start.line ?? 1
-      });
-    }
-  }
-
-  const unique = new Map<string, MemberDeclaration>();
-  for (const member of members) {
-    const key = `${member.name}:${member.kind}`;
-    if (!unique.has(key)) {
-      unique.set(key, member);
-    }
-  }
-
-  return [...unique.values()];
-}
-
 function toClassSymbol(name: string, classNode: t.Class, options?: ExtractSymbolsOptions): ClassSymbol {
   return {
     name,
@@ -677,52 +407,6 @@ function toClassSymbol(name: string, classNode: t.Class, options?: ExtractSymbol
     startLine: classNode.loc?.start.line ?? 1,
     endLine: classNode.loc?.end.line ?? classNode.loc?.start.line ?? 1
   };
-}
-
-function findClassFromExpression(expression: t.Node | null | undefined): t.Class | null {
-  if (!expression) {
-    return null;
-  }
-
-  if (t.isClassExpression(expression) || t.isClassDeclaration(expression)) {
-    return expression;
-  }
-
-  if (t.isArrowFunctionExpression(expression) || t.isFunctionExpression(expression) || t.isFunctionDeclaration(expression)) {
-    if (t.isClassExpression(expression.body)) {
-      return expression.body;
-    }
-
-    if (t.isBlockStatement(expression.body)) {
-      for (const statement of expression.body.body) {
-        if (t.isReturnStatement(statement) && statement.argument) {
-          const nestedClass = findClassFromExpression(statement.argument);
-          if (nestedClass) {
-            return nestedClass;
-          }
-        }
-      }
-    }
-
-    return null;
-  }
-
-  if (t.isCallExpression(expression)) {
-    for (const arg of expression.arguments) {
-      if (!t.isExpression(arg)) {
-        continue;
-      }
-
-      const nestedClass = findClassFromExpression(arg);
-      if (nestedClass) {
-        return nestedClass;
-      }
-    }
-
-    return findClassFromExpression(expression.callee);
-  }
-
-  return null;
 }
 
 export function extractFileSymbols(
@@ -825,9 +509,7 @@ export function extractFileSymbols(
           exports.set(variable.id.name, { localName: variable.id.name });
           exportedInitializers.set(variable.id.name, variable.init);
 
-          const classNode = t.isClassExpression(variable.init)
-            ? variable.init
-            : findClassFromExpression(variable.init);
+          const classNode = findClassFromExpression(variable.init);
 
           if (classNode) {
             classes.push(toClassSymbol(variable.id.name, classNode, options));
@@ -844,9 +526,7 @@ export function extractFileSymbols(
           continue;
         }
 
-        const classNode = t.isClassExpression(variable.init)
-          ? variable.init
-          : findClassFromExpression(variable.init);
+        const classNode = findClassFromExpression(variable.init);
 
         if (classNode) {
           classes.push(toClassSymbol(variable.id.name, classNode, options));
