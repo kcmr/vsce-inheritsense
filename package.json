@@ -2,7 +2,7 @@
   "name": "inheritsense",
   "displayName": "InheritSense",
   "description": "Trace JavaScript member origins across class factories and mixins.",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "publisher": "kuscamara",
   "author": "Kus Cámara",
   "license": "MIT",
