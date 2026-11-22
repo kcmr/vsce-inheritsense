@@ -192,7 +192,8 @@ These fixtures cover:
 
 `deduping-mixin.js` is a simplified fixture wrapper: it applies the supplied
 factory without caching or deduplication. It is not a production implementation.
-Its contract follow-up remains in the
+Deduplication and helper renaming are excluded from the agreed release scope;
+see the FIXTURE-03 decision in the
 [quality register](exec-plans/backlog/2026-11-21-quality-and-public-release.md).
 
 Additional parser/resolver scenarios now live under `test/fixtures/scenarios/`.

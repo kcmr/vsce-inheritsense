@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, DEP-01 through DEP-02, and DEP-04 through DEP-05 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, DEP-01 through DEP-05 completed. PERF-01 and DIAG-01 remain pending; FIXTURE-03 is excluded by scope decision.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -67,12 +67,25 @@ and tooling. These priorities are not security-severity ratings.
   139 tests (no TODOs), lint, strict source complexity, frozen offline installation,
   and compiled parser loading pass. Node and remaining package versions stay unchanged.
 
-- [ ] **DEP-03 · P2 · Evaluate the TypeScript major upgrade.**
+- [x] **DEP-03 · P2 · Evaluate the TypeScript major upgrade.**
   The lockfile contains `6.0.3`. During the review, the
   [official registry](https://registry.npmjs.org/typescript/latest) returned
   `7.0.2` as `latest`. This is a dated observation, not a migration requirement.
   **Acceptance:** review configuration and tooling compatibility, document the
   decision, and verify the selected version.
+  Completed 2026-11-22 on `chore/typescript-major-evaluation`; see the
+  [focused evaluation](../completed/2026-11-22-typescript-major-evaluation.md).
+  Retain TypeScript 6.0.3 and the existing `^6.0.3` range. Official registry
+  metadata still reports 7.0.2, but installed typescript-eslint 8.73.0 and its
+  [official support policy](https://typescript-eslint.io/users/dependency-versions/)
+  support only `>=4.8.4 <6.1.0`. FIX-04's native-definition test helper also
+  depends on the classic compiler/language-service API. Current Node16/ES2022
+  configuration needs no change for the selected version. Types, 139 tests,
+  lint, strict complexity, and frozen lockfile-only strict-peer checks pass.
+  Full offline installation could not complete because a tarball was absent
+  from the sandbox-local store; no dependency/configuration changes were made.
+  Revisit when both lint tooling and API-dependent tests support the replacement;
+  a newer major alone does not justify a second compiler toolchain.
 
 - [x] **DEP-04 · P1 · Align VS Code types with the minimum supported version.**
   `engines.vscode` supports `^1.95.0`; `@types/vscode` declares `^1.95.0` but
@@ -237,7 +250,16 @@ and tooling. These priorities are not security-severity ratings.
 
 - [ ] **PERF-01 · P2 · Avoid repeated reads and parsing.**
   Resolution performs synchronous reads and repeated extraction per request.
-  Providers ignore cancellation. Hover's line cache lasts for one hover only.
+  Hover, definition, and completion callbacks do not consume VS Code's
+  `CancellationToken`; the resolver has no cancellation input. Hover's line
+  cache lasts for one hover only.
+  Review 2026-11-22: REF-04 verified Esc dismissing Trace's Quick Pick without
+  navigation (Node tests and user-confirmed editor checks), not cancellation of
+  provider analysis. FIX-04's pending-query guard prevents recursive native
+  definition queries; it does not cancel them. Provider cancellation remains
+  unimplemented. Synchronous work also blocks delivery of new cancellation
+  events; meaningful interruption needs yielding/asynchronous boundaries rather
+  than token checks only at the end.
   **Acceptance:** measure before/after, reuse analysis with correct invalidation,
   account for unsaved open documents, avoid stale results, and honor cancellation.
 
@@ -246,14 +268,28 @@ and tooling. These priorities are not security-severity ratings.
   hiding the difference between missing results and internal failures.
   **Acceptance:** useful diagnostics without repetitive notifications while
   editing; preserve tolerance for incomplete JavaScript.
+  Clarification 2026-11-22: distinguish a normal empty lookup from an unexpected
+  parser/resolver, file-access, rendering, or native-provider query failure.
+  A possible implementation is a disposable Output/Log channel recording the
+  provider, file/request context, and error/stack, with repeated failures deduplicated
+  or throttled. Expected incomplete-source parse errors should remain quiet or
+  trace-level; no-match results and cancellation are not internal failures.
+  Keep existing safe fallbacks, including extension definitions when the native
+  query fails. Include asynchronous failures in the diagnostic boundary: the
+  definition callback currently returns `omitNativeDefinitions` without awaiting
+  it, so its synchronous catch does not cover arbitrary promise rejections;
+  the helper separately catches native-query failures. This is clarification,
+  not an implemented diagnostic design or evidence of a new reproduced bug.
 
 ### Fixture contracts
 
-- [ ] **FIXTURE-03 · P1 · Fix misleading example contracts.**
+- **FIXTURE-03 · P1 · Fix misleading example contracts — Cancelled / excluded.**
   `dedupingMixin` only wraps a factory and does not deduplicate. The overview
   explicitly documents this simplification.
-  **Acceptance:** review wrapper naming or deduplication semantics if that
-  behavior becomes part of the fixture coverage.
+  Scope decision 2026-11-22: do not implement deduplication or rename
+  `dedupingMixin`. Keep the explicit simplification documented in the overview.
+  This item is excluded from release acceptance, not completed or verified as a
+  deduplicating helper.
 
 ### Automated verification
 
@@ -294,17 +330,29 @@ and tooling. These priorities are not security-severity ratings.
 2. Move test sources into debug-friendly fixtures (TEST-02), then finish legacy
    complexity reduction (REF-03) and UI duplication cleanup (REF-04).
 3. Review remaining dependency and runtime compatibility items in independent changes.
-4. Review the wrapper contract separately (FIXTURE-03).
-5. Measure performance, improve diagnostics, and update documentation.
+4. Measure performance, improve diagnostics, and update documentation.
+
+FIXTURE-03 is excluded from the agreed scope.
 
 ## Overall acceptance criteria
 
-- [ ] Fixture helper contracts are explicit and verified.
+- ~~Fixture helper contracts are explicit and verified.~~ Excluded for
+  `dedupingMixin` by the 2026-11-22 scope decision (FIXTURE-03); the documented
+  simplification is retained without claiming deduplication verification.
 - [x] Recorded resolution failures are reproduced and fixed with regression tests.
 - [x] Individual lookup and catalog use consistent, verified resolution rules.
-- [ ] Dependencies are justified and compatible with supported environments.
-- [ ] Types, lint, and relevant tests pass; remaining limitations are documented.
-- [ ] Closed tasks include evidence, a completion date, and a change reference.
+- [x] Dependencies are justified and compatible with supported environments.
+  DEP-01/02 justify the graph, DEP-03 retains the supported compiler, and
+  DEP-04/05 record minimum API/runtime compatibility and maintenance limits.
+- [x] Types, lint, and relevant tests pass; remaining limitations are documented.
+  DEP-03 reran all 139 Node tests (no TODOs), types, lint, and strict complexity.
+  REF-04/FIX-04 distinguish user editor checks from the unrun post-correction
+  automated host suite and deferred minimum-editor UI rerun; these are not
+  claimed as passing. PERF-01/DIAG-01 remain open work.
+- [x] Closed tasks include evidence, a completion date, and a change reference.
+  Completed plans and register entries supply dated verification plus their
+  dedicated branch/change references. This does not imply commit or publication
+  approval. Cancelled FIXTURE-03 is a scope decision, not a completed change.
 
 ## Verification
 
@@ -330,6 +378,9 @@ Do not use packaging as a side-effect-free check.
 
 - Keep tasks individually identifiable and verifiable for small implementation changes.
 - Do not require a major upgrade solely because a newer version exists.
+- DEP-03 retains TypeScript 6.0.3 until lint peers and compiler-API consumers
+  support a replacement. Do not add parallel compilers without a measured need.
+- FIXTURE-03 is excluded from release scope; preserve its documented simplification.
 - Reproduce static correctness findings before closing them as fixed bugs.
 
 ## Progress
@@ -351,3 +402,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | DEP-05 completed | Internal Node API/type audit; retain Node 26/types and >=24 development floor; 139 tests pass on isolated Node 24.0.0. Only execution-plan documentation changes; future API additions require renewed baseline verification. |
 | 2026-11-22 | DEP-02 completed | Removed unused @babel/traverse and 11 unneeded transitive packages; all remaining lock entries unchanged; 139 tests, types, lint, strict complexity, and frozen offline installation pass. |
 | 2026-11-22 | DEP-01 completed | Brief installed-version/peer review; four caret minima aligned with existing lock versions; resolved graph unchanged; no new pins or Node changes; 139 tests and standard checks pass. |
+| 2026-11-22 | DEP-03 completed; acceptance reconciled | Retain TypeScript 6.0.3 for lint/API compatibility; 139 tests and standard checks pass. Completed-plan evidence supports three further overall checkboxes. Provider cancellation remains PERF-01; DIAG-01 clarified; FIXTURE-03 excluded. |
