@@ -8,7 +8,7 @@ class, factory, or injector supplies the member and where it is defined.
 
 ## Screenshots
 
-![Hover and Go to Definition](./images/vsce-inheritsense-3.gif)
+![Hover and Go to Definition](./images/vsce-inheritsense-3.gif)   
 ![Completion](./images/vsce-inheritsense-completion.png)
 
 ## Features
