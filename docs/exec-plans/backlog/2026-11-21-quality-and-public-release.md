@@ -110,34 +110,31 @@ and tooling. These priorities are not security-severity ratings.
   complexity warnings. New/extracted functions pass complexity checks at error
   severity with a limit of 15. Scope and deduplication differences remain explicit.
 
-- [ ] **REF-03 · P2 · Split functions with high complexity.**
-  Separate imports/exports, explicit members, declarative properties,
-  assignments, and injector recognition. Review hover JSDoc extraction/formatting.
-  **Acceptance:** reduce responsibilities, branches, and nesting with behavior
-  coverage; reduce the warnings from the configured ESLint complexity limit.
-  **Lint policy (2026-11-21):** `complexity: ["warn", 15]` is configured for
-  `src/**/*.ts` in `eslint.config.mjs`. Existing warnings are accepted until this
-  refactor; run `pnpm lint` without a rule override. Verified: exit code 0,
-  10 complexity warnings, no errors. REF-03 remains pending.
+- [ ] **REF-03 · P2 · Bring remaining legacy functions within complexity 15.**
+  Split responsibilities in import/export extraction, assignment and injector
+  recognition, and hover JSDoc extraction/formatting. REF-02 already brought the
+  new AST/member modules within the limit; this task covers the remaining legacy
+  functions rather than creating another complexity workstream.
+  **Acceptance:** every function in `src/` has ESLint cyclomatic complexity at
+  most 15, with no suppressions or raised limits; preserve behavior with relevant
+  parser/resolver coverage and extension-host tests when changing provider behavior.
+  Run types, tests, normal lint, and a strict complexity check over `src/`.
+  **Policy:** new/extracted/relocated functions must already meet the limit; see
+  [agent instructions](../../../AGENTS.md). Legacy warnings remain pending here.
 
-  Baseline using `complexity: [warn, 15]` and `max-depth: [warn, 4]`:
+  Latest recorded baseline after REF-02 (2026-11-22): `pnpm lint` passed with
+  6 complexity warnings and no errors. Recheck when starting implementation.
 
   | Location under `src/` | Function | Complexity |
   | --- | --- | ---: |
-  | `parser/symbols.ts` | `toMemberDeclarations` | 48 |
-  | `parser/symbols.ts` | `extractFileSymbols` | 38 |
+  | `parser/symbols.ts` | `extractFileSymbols` | 50 |
   | `parser/symbols.ts` | `collectDynamicBagInjectionMembers` callback | 26 |
   | `providers/memberOriginHoverProvider.ts` | `appendFormattedJsDoc` | 23 |
-  | `parser/symbols.ts` | `collectFunctionInjectionMeta` callback | 22 |
-  | `parser/symbols.ts` | `visit` | 19 |
-  | `parser/symbols.ts` | `collectInjectedMembersFromStatement` | 18 |
-  | `resolver/memberResolver.ts` | `findClassFromExpression` | 18 |
-  | `parser/symbols.ts` | `collectBagMembers` | 17 |
-  | `parser/symbols.ts` | `findClassFromExpression` | 17 |
+  | `parser/symbols.ts` | `collectFunctionInjectionMeta` callback | 20 |
   | `providers/memberOriginHoverProvider.ts` | `getOriginJsDoc` | 17 |
+  | `parser/symbols.ts` | `collectInjectedMembersFromStatement` | 16 |
 
-  Total: 19 warnings, including nesting up to six levels. Metrics identify
-  review candidates; they do not replace readability assessment.
+  Metrics identify review candidates; they do not replace readability assessment.
 
 - [ ] **REF-04 · P2 · Share VS Code integration helpers.**
   Providers repeat JavaScript selectors, file-extension checks, and resolution
@@ -215,11 +212,27 @@ and tooling. These priorities are not security-severity ratings.
   Those five reproductions were subsequently fixed under FIX-01 through FIX-03.
   Extension-host integration tests are required when modifying provider behavior; see [test scope](../../../test/README.md).
 
+- [ ] **TEST-02 · P2 · Share on-disk test scenarios with extension debugging.**
+  Move JavaScript source used by tests from inline strings into organized files
+  under `test/fixtures/`, so the same scenarios can be opened in an Extension
+  Development Host for manual hover, definition, completion, and trace checks.
+  Tests should locate these fixtures and read their contents instead of duplicating
+  source code or executing fixture modules just to obtain their source.
+  **Acceptance:** migrate source scenarios while preserving assertions, origin
+  metadata, strict/permissive modes, and isolated temporary module graphs where
+  needed; retain parameterized variants and unsaved-document checks using fixture
+  source. Document scenario entry files, relevant symbols, expected behavior, and
+  debug steps in `test/README.md`. Clearly identify malformed, cyclic, or other
+  static-analysis-only scenarios and keep them separate from runnable examples.
+  Automated tests must exercise the same fixture source used for manual debugging;
+  verify the test suite and representative scenarios in extension debug mode.
+
 ## Proposed execution order
 
 1. Fix scope handling, local inheritance, and import identity on separate branches,
    promoting their TODO reproductions to normal regression tests.
-2. Share traversal/extraction and reduce complexity and UI duplication.
+2. Move test sources into debug-friendly fixtures (TEST-02), then finish legacy
+   complexity reduction (REF-03) and UI duplication cleanup (REF-04).
 3. Review dependency and runtime compatibility in independent changes.
 4. Review the wrapper contract separately (FIXTURE-03).
 5. Measure performance, improve diagnostics, and update documentation.
