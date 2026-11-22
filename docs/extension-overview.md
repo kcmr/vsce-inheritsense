@@ -200,13 +200,15 @@ see [test instructions and coverage](../test/README.md). The five recorded
 correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
 there are no remaining TODO tests.
 
-1. Review dependency and runtime compatibility (see the quality register).
-2. Add hover/definition/completion extension-host tests when changing provider behavior.
+1. Avoid duplicate native/extension definition destinations (FIX-04 in the quality register).
+2. Review remaining dependency/runtime compatibility and keep real-host coverage
+   when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.
 
 ## 9. Related documentation
 
+- [VS Code API compatibility policy](vscode-compatibility.md)
 - [Agent instructions](../AGENTS.md)
 - [Execution-plan workflow](agent-harness/workflows.md)
 - [Quality register](exec-plans/backlog/2026-11-21-quality-and-public-release.md)

@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-03, and REF-01 through REF-02 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-03, REF-01 through REF-04, and DEP-04 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -65,11 +65,19 @@ and tooling. These priorities are not security-severity ratings.
   **Acceptance:** review configuration and tooling compatibility, document the
   decision, and verify the selected version.
 
-- [ ] **DEP-04 · P1 · Align VS Code types with the minimum supported version.**
+- [x] **DEP-04 · P1 · Align VS Code types with the minimum supported version.**
   `engines.vscode` supports `^1.95.0`; `@types/vscode` declares `^1.95.0` but
   resolves to `1.146.0`, allowing compilation against newer APIs.
   **Acceptance:** establish a type/version policy that prevents unsupported API
   usage and verify the minimum supported VS Code environment.
+  Completed 2026-11-22 on `chore/vscode-api-compatibility`; see the
+  [completed plan](../completed/2026-11-22-vscode-api-compatibility.md) and
+  [compatibility policy](../../vscode-compatibility.md). Types are pinned to
+  1.95.0 and a manifest/installed-version guard is enforced. Compilation, 128
+  development-runtime tests, 116 tests on the minimum editor's embedded runtime,
+  lint, complexity, and frozen offline installation pass. The user confirmed
+  operation in the isolated VS Code 1.95.0. Duplicate native/extension definition
+  destinations also occur in the current editor and are tracked as FIX-04.
 
 - [ ] **DEP-05 · P2 · Align Node types and runtime support.**
   `@types/node` is `26.6.6`; `engines.node` supports Node 24 onward. Also review
@@ -196,6 +204,15 @@ and tooling. These priorities are not security-severity ratings.
   `pnpm test`: 79 passing, no TODOs; types and lint pass. Wildcard export discovery,
   nested/computed namespace chains, and CommonJS export inference remain outside scope.
 
+- [ ] **FIX-04 · P2 · Avoid duplicate native and extension definition targets.**
+  User reproduced two Cmd/Ctrl+Click destinations for one inherited method in
+  both VS Code 1.95.0 and the current debug host. The native provider targets the
+  identifier range; InheritSense targets column zero with an empty range.
+  **Acceptance:** show one equivalent destination while preserving different
+  declarations (including in the same file) and extension-only factory/mixin/
+  injector navigation. See the [focused backlog plan](2026-11-22-duplicate-definition-targets.md)
+  for the fixture, reproduced ranges, and required native-coexistence coverage.
+
 - [ ] **PERF-01 · P2 · Avoid repeated reads and parsing.**
   Resolution performs synchronous reads and repeated extraction per request.
   Providers ignore cancellation. Hover's line cache lasts for one hover only.
@@ -254,7 +271,8 @@ and tooling. These priorities are not security-severity ratings.
    promoting their TODO reproductions to normal regression tests.
 2. Move test sources into debug-friendly fixtures (TEST-02), then finish legacy
    complexity reduction (REF-03) and UI duplication cleanup (REF-04).
-3. Review dependency and runtime compatibility in independent changes.
+3. Fix duplicate definition destinations (FIX-04), then review remaining
+   dependency and runtime compatibility items in independent changes.
 4. Review the wrapper contract separately (FIXTURE-03).
 5. Measure performance, improve diagnostics, and update documentation.
 
@@ -307,3 +325,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | REF-03 completed | Focused parser/JSDoc helpers; 113 passing tests, no TODOs; types, lint, and strict source complexity pass with zero warnings. |
 | 2026-11-22 | TEST-02 completed | Shared on-disk scenarios and debug walkthrough; 104 passing tests, no TODOs; types/lint/complexity checks pass; user confirmed expected debug-mode results. |
 | 2026-11-22 | REF-04 completed | Shared VS Code integration helpers and per-origin paths; resource setting scopes; 127 passing Node tests; types/lint/complexity pass; user confirmed manual real-host checks. Automated host suite retained without a passing post-correction run. |
+| 2026-11-22 | DEP-04 completed; FIX-04 reproduced | Exact minimum API types and version guard; 128 development/116 embedded-runtime tests pass; user confirmed actual 1.95.0 operation. Native/extension duplicate target ranges reproduced and tracked separately. |

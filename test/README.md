@@ -7,6 +7,10 @@ its version, and no VS Code extension host is required.
 
 ## Node coverage
 
+- `vscode-compatibility.test.mjs`: prevents drift between the declared minimum VS
+  Code version, its exact type dependency, and the installed type version; see
+  the [compatibility policy](../docs/vscode-compatibility.md).
+
 - `extraction.test.mjs`: shared class/factory extraction across eight expression
   forms in strict/permissive modes, member kinds and literal keys, source metadata,
   lookup/catalog parity, constructor exclusion, and class/injector deduplication.
