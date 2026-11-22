@@ -9,10 +9,10 @@ importers:
   .:
     dependencies:
       '@babel/parser':
-        specifier: ^7.27.7
+        specifier: ^7.29.14
         version: 7.29.14
       '@babel/types':
-        specifier: ^7.27.7
+        specifier: ^7.29.14
         version: 7.29.14
     devDependencies:
       '@eslint/js':
@@ -31,10 +31,10 @@ importers:
         specifier: ^9.39.5
         version: 9.39.5(supports-color@7.2.0)
       typescript:
-        specifier: ^6.0.0
+        specifier: ^6.0.3
         version: 6.0.3
       typescript-eslint:
-        specifier: ^8.18.0
+        specifier: ^8.73.0
         version: 8.73.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
 
 packages:

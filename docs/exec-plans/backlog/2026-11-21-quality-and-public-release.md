@@ -1,7 +1,7 @@
 # Quality and public-release readiness
 
 Review date: 2026-11-21.
-Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, DEP-02, and DEP-04 through DEP-05 completed; remaining tasks pending.
+Status: Backlog. TEST-01 through TEST-02, FIX-01 through FIX-04, REF-01 through REF-04, DEP-01 through DEP-02, and DEP-04 through DEP-05 completed; remaining tasks pending.
 
 Check items only after implementation and verification. Follow
 [the execution-plan workflow](../../agent-harness/workflows.md) when starting work.
@@ -44,14 +44,17 @@ and tooling. These priorities are not security-severity ratings.
 
 ### Dependencies and compatibility
 
-- [ ] **DEP-01 · P2 · Review declared ranges and installed versions.**
-  Babel parser and types declare `^7.27.7`; the lockfile resolves both to
-  `7.29.14`. `typescript-eslint` declares `^8.18.0` and resolves to `8.73.0`.
-  Separate minimum-range updates from installed-version updates. Check registry
-  versions and peer requirements for Babel, ESLint, `@eslint/js`,
-  `typescript-eslint`, and `@vscode/vsce`.
+- [x] **DEP-01 · P2 · Review declared ranges and installed versions.**
   **Acceptance:** justified versions, compatible peers, and a consistent lockfile;
   old minimum ranges alone are not evidence of outdated installed packages.
+  Completed 2026-11-22 on `chore/dependency-review`; see the
+  [focused plan](../completed/2026-11-22-dependency-review.md).
+  Per the user's limited scope, reviewed installed metadata and raised four caret
+  minima only to existing lock versions: parser/types 7.29.14, TypeScript 6.0.3,
+  typescript-eslint 8.73.0. Peers and direct Node requirements are compatible;
+  resolved packages/snapshots are byte-identical. No new pins or registry-latest
+  upgrade research. The TypeScript-major decision remains DEP-03. Types, 139
+  tests, lint, strict complexity, and frozen strict-peer installation pass.
 
 - [x] **DEP-02 · P2 · Remove or justify `@babel/traverse`.**
   It is a production dependency without imports in `src`.
@@ -347,3 +350,4 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-22 | FIX-04 completed | Precise opt-in declaration ranges and guarded native-provider coexistence; 139 development/122 minimum-runtime tests pass; types/lint/complexity pass; user confirmed current-editor navigation. Fresh minimum UI and automated host reruns deferred. |
 | 2026-11-22 | DEP-05 completed | Internal Node API/type audit; retain Node 26/types and >=24 development floor; 139 tests pass on isolated Node 24.0.0. Only execution-plan documentation changes; future API additions require renewed baseline verification. |
 | 2026-11-22 | DEP-02 completed | Removed unused @babel/traverse and 11 unneeded transitive packages; all remaining lock entries unchanged; 139 tests, types, lint, strict complexity, and frozen offline installation pass. |
+| 2026-11-22 | DEP-01 completed | Brief installed-version/peer review; four caret minima aligned with existing lock versions; resolved graph unchanged; no new pins or Node changes; 139 tests and standard checks pass. |
