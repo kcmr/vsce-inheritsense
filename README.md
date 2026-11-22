@@ -16,7 +16,8 @@ class, factory, or injector supplies the member and where it is defined.
 - **Hover:** inspect inherited member origins, owner names, file locations, and
   available JSDoc.
 - **Go to Definition:** navigate to inherited methods, getters, setters, and
-  fields, including members supplied by supported factories and mixins.
+  fields, including members supplied by supported factories and mixins, using
+  VS Code's native Go to Definition actions and keyboard shortcuts.
 - **Completion:** discover inherited members when typing `this.`, with their
   owners and locations in suggestion documentation.
 - **Trace Selected Symbol:** choose an origin from a list and jump to its source.
@@ -53,7 +54,9 @@ that file.
 Open a JavaScript file and place the cursor on a member reference inside a class.
 
 - Hover over an inherited member to inspect its origin.
-- Use **Go to Definition** or Cmd/Ctrl+Click to navigate to its declaration.
+- Use **Go to Definition** with your usual VS Code shortcut (F12 by default),
+  or Cmd/Ctrl+Click, to navigate to its declaration. Custom Go to Definition
+  keybindings work with InheritSense too.
 - Type `this.` inside a method to see inherited completion suggestions.
 - Right-click a member name and choose **InheritSense: Trace Selected Symbol**.
   You can also select the name before opening the context menu. Choose a result
