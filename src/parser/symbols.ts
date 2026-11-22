@@ -54,6 +54,13 @@ function moduleName(node: t.Identifier | t.StringLiteral): string {
   return t.isIdentifier(node) ? node.name : node.value;
 }
 
+function bagAssignmentName(member: t.MemberExpression): string | null {
+  if (member.computed && t.isStringLiteral(member.property)) {
+    return member.property.value;
+  }
+  return t.isIdentifier(member.property) ? member.property.name : null;
+}
+
 function collectInjectedMembersFromStatement(
   statement: t.Statement,
   bagMembers: Map<string, MemberDeclaration[]>
@@ -72,15 +79,7 @@ function collectInjectedMembersFromStatement(
   }
 
   const bagName = assignment.left.object.name;
-  const memberName = assignment.left.computed
-    ? t.isStringLiteral(assignment.left.property)
-      ? assignment.left.property.value
-      : t.isIdentifier(assignment.left.property)
-        ? assignment.left.property.name
-        : null
-    : t.isIdentifier(assignment.left.property)
-      ? assignment.left.property.name
-      : null;
+  const memberName = bagAssignmentName(assignment.left);
 
   if (!memberName) {
     return;
@@ -195,6 +194,63 @@ function firstParamName(fn: AnyFunction): string | null {
   return firstParam && t.isIdentifier(firstParam) ? firstParam.name : null;
 }
 
+function isNamedMember(node: t.Node, objectName: string, propertyName: string): boolean {
+  return t.isMemberExpression(node) && !node.computed &&
+    t.isIdentifier(node.object, { name: objectName }) &&
+    t.isIdentifier(node.property, { name: propertyName });
+}
+
+function objectEntriesBagName(callee: t.Node): string | null {
+  if (!t.isMemberExpression(callee) || callee.computed ||
+      !t.isIdentifier(callee.property, { name: "forEach" }) ||
+      !t.isCallExpression(callee.object)) {
+    return null;
+  }
+  const entries = callee.object;
+  if (!isNamedMember(entries.callee, "Object", "entries")) {
+    return null;
+  }
+  const bag = entries.arguments[0];
+  return t.isIdentifier(bag) ? bag.name : null;
+}
+
+function writesDynamicReceiver(fn: AnyFunction, receiverName: string): boolean {
+  const param = fn.params[0];
+  if (!t.isArrayPattern(param) || !t.isBlockStatement(fn.body)) {
+    return false;
+  }
+  const key = param.elements[0];
+  if (!t.isIdentifier(key)) {
+    return false;
+  }
+  let found = false;
+  visitNode(fn.body, (node) => {
+    if (!t.isAssignmentExpression(node) || !t.isMemberExpression(node.left)) {
+      return;
+    }
+    const left = node.left;
+    if (left.computed && t.isIdentifier(left.object, { name: receiverName }) &&
+        t.isIdentifier(left.property, { name: key.name })) {
+      found = true;
+    }
+  });
+  return found;
+}
+
+function receiverAssignmentName(node: t.Node, receiverName: string): string | null {
+  if (!t.isAssignmentExpression(node, { operator: "=" }) || !t.isMemberExpression(node.left)) {
+    return null;
+  }
+  const member = node.left;
+  if (!t.isIdentifier(member.object, { name: receiverName })) {
+    return null;
+  }
+  if (member.computed) {
+    return t.isStringLiteral(member.property) ? member.property.value : null;
+  }
+  return t.isIdentifier(member.property) ? member.property.name : null;
+}
+
 function collectDynamicBagInjectionMembers(
   fn: AnyFunction,
   receiverParamName: string,
@@ -212,73 +268,20 @@ function collectDynamicBagInjectionMembers(
       return;
     }
 
-    const callee = current.callee;
-    if (
-      !t.isMemberExpression(callee) ||
-      callee.computed ||
-      !t.isIdentifier(callee.property) ||
-      callee.property.name !== "forEach" ||
-      !t.isCallExpression(callee.object)
-    ) {
-      return;
-    }
-
-    const objectEntriesCall = callee.object;
-    if (
-      !t.isMemberExpression(objectEntriesCall.callee) ||
-      objectEntriesCall.callee.computed ||
-      !t.isIdentifier(objectEntriesCall.callee.object) ||
-      objectEntriesCall.callee.object.name !== "Object" ||
-      !t.isIdentifier(objectEntriesCall.callee.property) ||
-      objectEntriesCall.callee.property.name !== "entries"
-    ) {
-      return;
-    }
-
-    const bagArg = objectEntriesCall.arguments[0];
-    if (!bagArg || !t.isIdentifier(bagArg)) {
+    const bagName = objectEntriesBagName(current.callee);
+    if (!bagName) {
       return;
     }
 
     const callback = current.arguments[0];
-    if (!(t.isArrowFunctionExpression(callback) || t.isFunctionExpression(callback))) {
+    if (!t.isArrowFunctionExpression(callback) && !t.isFunctionExpression(callback)) {
+      return;
+    }
+    if (!writesDynamicReceiver(callback, receiverParamName)) {
       return;
     }
 
-    const callbackFirstParam = callback.params[0];
-    if (!callbackFirstParam || !t.isArrayPattern(callbackFirstParam)) {
-      return;
-    }
-
-    const keyItem = callbackFirstParam.elements[0];
-    if (!keyItem || !t.isIdentifier(keyItem)) {
-      return;
-    }
-
-    const callbackBody = t.isBlockStatement(callback.body) ? callback.body : null;
-    if (!callbackBody) {
-      return;
-    }
-
-    let writesReceiverByDynamicKey = false;
-    visitNode(callbackBody, (callbackNode) => {
-      if (!t.isAssignmentExpression(callbackNode) || !t.isMemberExpression(callbackNode.left)) {
-        return;
-      }
-      const left = callbackNode.left;
-      if (!left.computed || !t.isIdentifier(left.object) || !t.isIdentifier(left.property)) {
-        return;
-      }
-      if (left.object.name === receiverParamName && left.property.name === keyItem.name) {
-        writesReceiverByDynamicKey = true;
-      }
-    });
-
-    if (!writesReceiverByDynamicKey) {
-      return;
-    }
-
-    const bag = bagMembers.get(bagArg.name) ?? [];
+    const bag = bagMembers.get(bagName) ?? [];
     found.push(...bag);
   });
 
@@ -299,26 +302,13 @@ function collectFunctionInjectionMeta(
   }
 
   visitNode(fn.body, (current) => {
-    if (t.isAssignmentExpression(current) && t.isMemberExpression(current.left) && current.operator === "=") {
-      const member = current.left;
-      if (t.isIdentifier(member.object) && member.object.name === receiverParamName) {
-        const assignedName = member.computed
-          ? t.isStringLiteral(member.property)
-            ? member.property.value
-            : null
-          : t.isIdentifier(member.property)
-            ? member.property.name
-            : null;
-
-        if (assignedName) {
-          const kind: MemberKind = assignedMemberKind(current.right);
-          directMembers.push({
-            name: assignedName,
-            kind,
-            line: current.loc?.start.line ?? fn.body.loc?.start.line ?? 1
-          });
-        }
-      }
+    const assignedName = receiverAssignmentName(current, receiverParamName);
+    if (assignedName && t.isAssignmentExpression(current)) {
+      directMembers.push({
+        name: assignedName,
+        kind: assignedMemberKind(current.right),
+        line: current.loc?.start.line ?? fn.body.loc?.start.line ?? 1
+      });
     }
 
     if (!t.isCallExpression(current) || !t.isIdentifier(current.callee)) {
@@ -409,137 +399,114 @@ function toClassSymbol(name: string, classNode: t.Class, options?: ExtractSymbol
   };
 }
 
+function collectImport(statement: t.ImportDeclaration, imports: Map<string, ImportBinding>): void {
+  for (const specifier of statement.specifiers) {
+    if (t.isImportSpecifier(specifier) || t.isImportDefaultSpecifier(specifier) || t.isImportNamespaceSpecifier(specifier)) {
+      const importedName = t.isImportSpecifier(specifier)
+        ? moduleName(specifier.imported)
+        : t.isImportDefaultSpecifier(specifier) ? "default" : null;
+      imports.set(specifier.local.name, { source: statement.source.value, importedName });
+    }
+  }
+}
+
+function collectNamedExportBindings(statement: t.ExportNamedDeclaration, exports: Map<string, ExportBinding>): void {
+  for (const specifier of statement.specifiers) {
+    const exportedName = moduleName(specifier.exported);
+    if (t.isExportSpecifier(specifier)) {
+      const localName = moduleName(specifier.local);
+      exports.set(exportedName, statement.source
+        ? { source: statement.source.value, importedName: localName }
+        : { localName });
+    } else if (t.isExportNamespaceSpecifier(specifier) && statement.source) {
+      exports.set(exportedName, { source: statement.source.value, importedName: null });
+    }
+  }
+}
+
+function collectClass(name: string, node: t.Node, symbols: FileSymbols, options?: ExtractSymbolsOptions): void {
+  const classNode = findClassFromExpression(node);
+  if (classNode) {
+    symbols.classes.push(toClassSymbol(name, classNode, options));
+  }
+}
+
+function collectDeclaration(
+  declaration: t.Declaration,
+  symbols: FileSymbols,
+  exported: boolean,
+  options?: ExtractSymbolsOptions
+): void {
+  if ((t.isClassDeclaration(declaration) || t.isFunctionDeclaration(declaration)) && declaration.id) {
+    const name = declaration.id.name;
+    if (exported) {
+      symbols.exports.set(name, { localName: name });
+    }
+    collectClass(name, declaration, symbols, options);
+    return;
+  }
+  if (!t.isVariableDeclaration(declaration)) {
+    return;
+  }
+  for (const variable of declaration.declarations) {
+    if (!t.isIdentifier(variable.id) || !variable.init) {
+      continue;
+    }
+    const name = variable.id.name;
+    if (exported) {
+      symbols.exports.set(name, { localName: name });
+      symbols.exportedInitializers.set(name, variable.init);
+    }
+    collectClass(name, variable.init, symbols, options);
+  }
+}
+
+function collectDefaultExport(
+  declaration: t.ExportDefaultDeclaration["declaration"],
+  symbols: FileSymbols,
+  options?: ExtractSymbolsOptions
+): void {
+  if (t.isIdentifier(declaration)) {
+    symbols.exports.set("default", { localName: declaration.name });
+    return;
+  }
+  const name = ((t.isClassDeclaration(declaration) || t.isFunctionDeclaration(declaration) ||
+    t.isClassExpression(declaration) || t.isFunctionExpression(declaration)) && declaration.id?.name) || "default";
+  symbols.exports.set("default", { localName: name });
+  collectClass(name, declaration, symbols, options);
+  if (t.isExpression(declaration)) {
+    symbols.exportedInitializers.set(name, declaration);
+  }
+}
+
 export function extractFileSymbols(
   sourceCode: string,
   filePath: string,
   options?: ExtractSymbolsOptions
 ): FileSymbols {
   const ast = parseJavaScript(sourceCode, filePath);
-  const imports = new Map<string, ImportBinding>();
-  const exports = new Map<string, ExportBinding>();
-  const exportedInitializers = new Map<string, t.Expression>();
-  const classes: ClassSymbol[] = [];
-  const injectors = collectInjectors(ast.program.body);
+  const symbols: FileSymbols = {
+    classes: [],
+    imports: new Map(),
+    exports: new Map(),
+    exportedInitializers: new Map(),
+    injectors: collectInjectors(ast.program.body)
+  };
 
   for (const statement of ast.program.body) {
     if (t.isImportDeclaration(statement)) {
-      for (const specifier of statement.specifiers) {
-        if (t.isImportSpecifier(specifier) || t.isImportDefaultSpecifier(specifier) || t.isImportNamespaceSpecifier(specifier)) {
-          const importedName = t.isImportSpecifier(specifier)
-            ? moduleName(specifier.imported)
-            : t.isImportDefaultSpecifier(specifier) ? "default" : null;
-          imports.set(specifier.local.name, { source: statement.source.value, importedName });
-        }
+      collectImport(statement, symbols.imports);
+    } else if (t.isExportDefaultDeclaration(statement)) {
+      collectDefaultExport(statement.declaration, symbols, options);
+    } else if (t.isExportNamedDeclaration(statement)) {
+      collectNamedExportBindings(statement, symbols.exports);
+      if (statement.declaration) {
+        collectDeclaration(statement.declaration, symbols, true, options);
       }
-      continue;
-    }
-
-    if (t.isClassDeclaration(statement) && statement.id) {
-      classes.push(toClassSymbol(statement.id.name, statement, options));
-      continue;
-    }
-
-    if (t.isFunctionDeclaration(statement) && statement.id) {
-      const classNode = findClassFromExpression(statement);
-      if (classNode) {
-        classes.push(toClassSymbol(statement.id.name, classNode, options));
-      }
-      continue;
-    }
-
-    if (t.isExportDefaultDeclaration(statement)) {
-      const declaration = statement.declaration;
-      if (t.isIdentifier(declaration)) {
-        exports.set("default", { localName: declaration.name });
-        continue;
-      }
-      const name = ((t.isClassDeclaration(declaration) || t.isFunctionDeclaration(declaration) ||
-        t.isClassExpression(declaration) || t.isFunctionExpression(declaration)) && declaration.id?.name) || "default";
-      exports.set("default", { localName: name });
-      const classNode = findClassFromExpression(declaration);
-      if (classNode) {
-        classes.push(toClassSymbol(name, classNode, options));
-      }
-      if (t.isExpression(declaration)) {
-        exportedInitializers.set(name, declaration);
-      }
-      continue;
-    }
-
-    if (t.isExportNamedDeclaration(statement)) {
-      for (const specifier of statement.specifiers) {
-        const exportedName = moduleName(specifier.exported);
-        if (t.isExportSpecifier(specifier)) {
-          const localName = moduleName(specifier.local);
-          exports.set(exportedName, statement.source
-            ? { source: statement.source.value, importedName: localName }
-            : { localName });
-        } else if (t.isExportNamespaceSpecifier(specifier) && statement.source) {
-          exports.set(exportedName, { source: statement.source.value, importedName: null });
-        }
-      }
-
-      const declaration = statement.declaration;
-      if (declaration && (t.isClassDeclaration(declaration) || t.isFunctionDeclaration(declaration)) && declaration.id) {
-        exports.set(declaration.id.name, { localName: declaration.id.name });
-      }
-      if (!declaration) {
-        continue;
-      }
-
-      if (t.isClassDeclaration(declaration) && declaration.id) {
-        classes.push(toClassSymbol(declaration.id.name, declaration, options));
-        continue;
-      }
-
-      if (t.isFunctionDeclaration(declaration) && declaration.id) {
-        const classNode = findClassFromExpression(declaration);
-        if (classNode) {
-          classes.push(toClassSymbol(declaration.id.name, classNode, options));
-        }
-        continue;
-      }
-
-      if (t.isVariableDeclaration(declaration)) {
-        for (const variable of declaration.declarations) {
-          if (!t.isIdentifier(variable.id) || !variable.init) {
-            continue;
-          }
-
-          exports.set(variable.id.name, { localName: variable.id.name });
-          exportedInitializers.set(variable.id.name, variable.init);
-
-          const classNode = findClassFromExpression(variable.init);
-
-          if (classNode) {
-            classes.push(toClassSymbol(variable.id.name, classNode, options));
-          }
-        }
-      }
-
-      continue;
-    }
-
-    if (t.isVariableDeclaration(statement)) {
-      for (const variable of statement.declarations) {
-        if (!t.isIdentifier(variable.id) || !variable.init) {
-          continue;
-        }
-
-        const classNode = findClassFromExpression(variable.init);
-
-        if (classNode) {
-          classes.push(toClassSymbol(variable.id.name, classNode, options));
-        }
-      }
+    } else if (t.isDeclaration(statement)) {
+      collectDeclaration(statement, symbols, false, options);
     }
   }
 
-  return {
-    classes,
-    imports,
-    exports,
-    exportedInitializers,
-    injectors
-  };
+  return symbols;
 }

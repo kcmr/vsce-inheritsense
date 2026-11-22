@@ -101,3 +101,20 @@ test("preserves JSDoc comments and reports unrecoverable syntax errors", () => {
   assert(ast.comments.some((comment) => comment.value.includes("@param {Event} event")));
   assert.throws(() => parseJavaScript(fixtureSource("scenarios/malformed/parser/unrecoverable-syntax/invalid.js"), "invalid.js"), SyntaxError);
 });
+
+test("REF-03: preserves injector computed-key policies and dynamic-bag recognition guards", () => {
+  const source = fixtureSource("scenarios/static/parser/injector-recognition-boundaries/subject.js");
+  const { injectors } = extractFileSymbols(source, "injectors.js");
+  assert.deepEqual(injectors.get("install"), [
+    { name: "direct", kind: "method", line: 7 },
+    { name: "literalDirect", kind: "field", line: 8 },
+    { name: "run", kind: "method", line: 1 },
+    { name: "enabled", kind: "field", line: 1 },
+    { name: "dynamicKey", kind: "method", line: 2 },
+    { name: "literal", kind: "field", line: 3 }
+  ]);
+  assert.deepEqual(injectors.get("rejected"), [
+    { name: "other", kind: "field", line: 21 },
+    { name: "key", kind: "field", line: 22 }
+  ]);
+});

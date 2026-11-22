@@ -131,6 +131,9 @@ Out of scope (still pending):
 - `src/providers/memberOriginHoverProvider.ts`
   - inherited origin hover UI
 
+- `src/providers/jsDoc.ts`
+  - isolated JSDoc extraction and Markdown formatting for hover
+
 - `src/providers/memberOriginDefinitionProvider.ts`
   - definition navigation to resolved origins
 
@@ -190,7 +193,7 @@ see [test instructions and coverage](../test/README.md). The five recorded
 correctness reproductions (FIX-01 through FIX-03) are now enforced regressions;
 there are no remaining TODO tests.
 
-1. Reduce parser and hover function complexity (REF-03 in the quality register).
+1. Share VS Code integration helpers (REF-04 in the quality register).
 2. Add hover/definition/completion extension-host tests when changing provider behavior.
 3. Improve confidence scoring with explicit strict/permissive markers.
 4. Add optional cache invalidation for repeated parsing and workspace-size scalability.

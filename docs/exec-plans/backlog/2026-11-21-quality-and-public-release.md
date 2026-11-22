@@ -110,7 +110,7 @@ and tooling. These priorities are not security-severity ratings.
   complexity warnings. New/extracted functions pass complexity checks at error
   severity with a limit of 15. Scope and deduplication differences remain explicit.
 
-- [ ] **REF-03 · P2 · Bring remaining legacy functions within complexity 15.**
+- [x] **REF-03 · P2 · Bring remaining legacy functions within complexity 15.**
   Split responsibilities in import/export extraction, assignment and injector
   recognition, and hover JSDoc extraction/formatting. REF-02 already brought the
   new AST/member modules within the limit; this task covers the remaining legacy
@@ -120,10 +120,10 @@ and tooling. These priorities are not security-severity ratings.
   parser/resolver coverage and extension-host tests when changing provider behavior.
   Run types, tests, normal lint, and a strict complexity check over `src/`.
   **Policy:** new/extracted/relocated functions must already meet the limit; see
-  [agent instructions](../../../AGENTS.md). Legacy warnings remain pending here.
+  [agent instructions](../../../AGENTS.md). All source functions now meet the limit.
 
-  Latest recorded baseline after REF-02 (2026-11-22): `pnpm lint` passed with
-  6 complexity warnings and no errors. Recheck when starting implementation.
+  Historical baseline after REF-02 (2026-11-22): `pnpm lint` passed with
+  6 complexity warnings and no errors.
 
   | Location under `src/` | Function | Complexity |
   | --- | --- | ---: |
@@ -133,6 +133,13 @@ and tooling. These priorities are not security-severity ratings.
   | `parser/symbols.ts` | `collectFunctionInjectionMeta` callback | 20 |
   | `providers/memberOriginHoverProvider.ts` | `getOriginJsDoc` | 17 |
   | `parser/symbols.ts` | `collectInjectedMembersFromStatement` | 16 |
+
+  Completed on 2026-11-22 in
+  [the focused plan](../completed/2026-11-22-legacy-complexity.md).
+  Module binding extraction and injector recognition now use focused helpers;
+  hover JSDoc processing is isolated with golden output coverage. Types, lint
+  (zero warnings), strict source complexity, and all 113 tests pass (no TODOs).
+  Before/after extraction matched for 502 fixture/mode results.
 
   Metrics identify review candidates; they do not replace readability assessment.
 
@@ -289,4 +296,5 @@ Do not use packaging as a side-effect-free check.
 | 2026-11-21 | FIX-03 completed | Separate import/export identities; alias/default/namespace provider and injector resolution; 79 passing tests, no TODOs; types and lint pass. |
 | 2026-11-22 | REF-01 completed | Shared lazy resolver traversal; seven contract tests pass before/after; 86 passing tests, no TODOs; types pass; lint has 10 accepted complexity warnings. |
 | 2026-11-22 | REF-02 completed | Shared AST/member helpers and parser-only declarations; constructor inconsistency reproduced and fixed; 104 passing tests, no TODOs; types pass; new modules pass strict complexity checks; lint has 6 legacy warnings. |
+| 2026-11-22 | REF-03 completed | Focused parser/JSDoc helpers; 113 passing tests, no TODOs; types, lint, and strict source complexity pass with zero warnings. |
 | 2026-11-22 | TEST-02 completed | Shared on-disk scenarios and debug walkthrough; 104 passing tests, no TODOs; types/lint/complexity checks pass; user confirmed expected debug-mode results. |

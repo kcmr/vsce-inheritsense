@@ -38,8 +38,12 @@ Tests use the public component fixtures and isolated temporary module graphs.
 Temporary files are removed after each test. Node's package resolver canonicalizes
 symlinks, so temporary roots are canonicalized for portable path assertions.
 
-These tests cover the shared resolution APIs, not VS Code provider registration,
-hover formatting, cursor-context detection, cancellation, or extension-host UX.
+The JSDoc suite checks comment extraction and exact Markdown append calls against
+golden results captured from the original hover implementation. It covers summary
+escaping boundaries, multiline tags, supported tags, and missing/ordinary comments.
+
+These tests cover the shared resolution APIs and isolated JSDoc helpers, not VS Code
+provider registration, cursor-context detection, cancellation, or extension-host UX.
 Add extension-host integration tests when changing those behaviors. Keep runtime
 composition examples distinct from resolver tests: static analysis may intentionally
 accept module graphs that cannot execute, such as cyclic class inheritance.
@@ -63,7 +67,9 @@ For resolver traversal contracts after compilation, run
 
 ## Shared source fixtures
 
-Test source belongs in `test/fixtures/`, not in strings inside test modules.
+Parser/resolver source scenarios belong in `test/fixtures/`, not in strings inside
+test modules. Isolated JSDoc snippets and their expected Markdown calls are inline
+in `jsdoc.test.mjs`; they do not need extension-debugging fixture files.
 `fixtureSource(relativePath)` reads a file as text without executing it.
 `fixtureGraph(context, relativeDirectory)` copies a whole scenario into a temporary
 root and returns a function for resolving its file paths. The copied bytes are the

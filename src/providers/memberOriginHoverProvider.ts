@@ -3,6 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { isPermissiveMethodAssignedFieldsEnabled } from "../config/settings";
 import { resolveMemberOrigins } from "../resolver/memberResolver";
+import { appendFormattedJsDoc, getOriginJsDoc } from "./jsDoc";
 
 const JS_SELECTOR: vscode.DocumentSelector = [
   { language: "javascript", scheme: "file" }
@@ -48,141 +49,6 @@ function getOriginLineSnippet(
 
   const normalized = snippet.trimStart();
   return normalized.length > 0 ? normalized : null;
-}
-
-function getOriginJsDoc(
-  filePath: string,
-  line: number,
-  fileCache: Map<string, string[]>
-): string[] | null {
-  if (line <= 1) {
-    return null;
-  }
-
-  const lines = fileCache.get(filePath);
-  if (!lines) {
-    return null;
-  }
-
-  let cursor = line - 2;
-  while (cursor >= 0 && lines[cursor].trim() === "") {
-    cursor -= 1;
-  }
-
-  if (cursor < 0 || !lines[cursor].includes("*/")) {
-    return null;
-  }
-
-  const end = cursor;
-  let start = -1;
-  while (cursor >= 0) {
-    const currentLine = lines[cursor];
-    if (currentLine.includes("/**")) {
-      start = cursor;
-      break;
-    }
-    if (currentLine.includes("/*") && !currentLine.includes("/**")) {
-      return null;
-    }
-    cursor -= 1;
-  }
-
-  if (start < 0) {
-    return null;
-  }
-
-  const rawBlock = lines.slice(start, end + 1);
-  const cleanedLines = rawBlock.map((raw) => {
-    let lineText = raw.trim();
-    lineText = lineText.replace(/^\/\*\*?\s?/, "");
-    lineText = lineText.replace(/^\*\s?/, "");
-    lineText = lineText.replace(/\*\/$/, "");
-    lineText = lineText.trim();
-    if (lineText === "/") {
-      return "";
-    }
-    return lineText;
-  });
-
-  while (cleanedLines.length > 0 && cleanedLines[0] === "") {
-    cleanedLines.shift();
-  }
-  while (cleanedLines.length > 0 && cleanedLines[cleanedLines.length - 1] === "") {
-    cleanedLines.pop();
-  }
-
-  if (cleanedLines.length === 0) {
-    return null;
-  }
-
-  return cleanedLines;
-}
-
-function appendFormattedJsDoc(markdown: vscode.MarkdownString, jsDocLines: string[]): void {
-  const summaryLines: string[] = [];
-  const tagLines: string[] = [];
-  let inTags = false;
-
-  for (const line of jsDocLines) {
-    if (line.startsWith("@")) {
-      inTags = true;
-      tagLines.push(line);
-      continue;
-    }
-
-    if (!inTags) {
-      summaryLines.push(line);
-    } else if (line.length > 0 && tagLines.length > 0) {
-      tagLines[tagLines.length - 1] += ` ${line}`;
-    }
-  }
-
-  const summary = summaryLines.join("\n").trim();
-  if (summary.length > 0) {
-    markdown.appendText(summary);
-    markdown.appendMarkdown("\n\n");
-  }
-
-  for (const tagLine of tagLines) {
-    const paramMatch = tagLine.match(/^@param\s+(?:\{([^}]+)\}\s*)?([^\s-]+)\s*(?:-\s*)?(.*)$/);
-    if (paramMatch) {
-      const typeText = paramMatch[1] ? ` {\`${paramMatch[1]}\`}` : "";
-      const name = paramMatch[2];
-      const description = paramMatch[3]?.trim();
-      markdown.appendMarkdown(`- **@param** \`${name}\`${typeText}${description ? ` - ${description}` : ""}\n`);
-      continue;
-    }
-
-    const returnsMatch = tagLine.match(/^@returns?\s+(?:\{([^}]+)\}\s*)?(.*)$/);
-    if (returnsMatch) {
-      const typeText = returnsMatch[1] ? ` {\`${returnsMatch[1]}\`}` : "";
-      const description = returnsMatch[2]?.trim();
-      markdown.appendMarkdown(`- **@returns**${typeText}${description ? ` - ${description}` : ""}\n`);
-      continue;
-    }
-
-    const deprecatedMatch = tagLine.match(/^@deprecated\s*(.*)$/);
-    if (deprecatedMatch) {
-      const description = deprecatedMatch[1]?.trim();
-      markdown.appendMarkdown(`- **@deprecated**${description ? ` - ${description}` : ""}\n`);
-      continue;
-    }
-
-    const genericTag = tagLine.match(/^@([^\s]+)\s*(.*)$/);
-    if (genericTag) {
-      const tagName = genericTag[1];
-      const description = genericTag[2]?.trim();
-      markdown.appendMarkdown(`- **@${tagName}**${description ? ` - ${description}` : ""}\n`);
-      continue;
-    }
-
-    markdown.appendText(tagLine);
-    markdown.appendMarkdown("\n");
-  }
-
-  if (tagLines.length > 0) {
-    markdown.appendMarkdown("\n");
-  }
 }
 
 function createHoverMarkdown(symbol: string, origins: ReturnType<typeof resolveMemberOrigins>): vscode.MarkdownString {
