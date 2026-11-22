@@ -9,3 +9,6 @@ Follow [the task workflow](../agent-harness/workflows.md) and use
 
 Current quality register:
 [Quality and public-release readiness](backlog/2026-11-21-quality-and-public-release.md).
+
+Documentation and metadata:
+[README, license, and package metadata](completed/2026-11-22-public-documentation-and-package.md).

@@ -1,16 +1,42 @@
 {
   "name": "inheritsense",
   "displayName": "InheritSense",
-  "description": "Trace member origins across class factories and mixins.",
+  "description": "Trace JavaScript member origins across class factories and mixins.",
   "version": "0.0.16",
-  "publisher": "local",
+  "publisher": "kuscamara",
+  "author": "Kus Cámara",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kcmr/vsce-inheritsense.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kcmr/vsce-inheritsense/issues"
+  },
+  "homepage": "https://github.com/kcmr/vsce-inheritsense#readme",
+  "keywords": [
+    "javascript",
+    "inheritance",
+    "intellisense",
+    "mixins",
+    "class factories",
+    "class composition",
+    "class hierarchy",
+    "member origins",
+    "go to definition",
+    "completion"
+  ],
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#04134E",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.95.0",
     "node": ">=24"
   },
   "categories": [
-    "Other"
+    "Programming Languages"
   ],
   "activationEvents": [
     "onCommand:inheritSense.traceSelectedSymbol",
