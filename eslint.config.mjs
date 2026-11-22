@@ -12,7 +12,7 @@ export default defineConfig(
   {
     files: ["src/**/*.ts"],
     rules: {
-      complexity: ["warn", 15],
+      complexity: ["error", 15],
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "off"
     }

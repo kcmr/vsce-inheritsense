@@ -41,7 +41,7 @@ functions must have complexity at most 15.
 - Final `pnpm test`: 104 passing, no failures or TODOs.
 - `pnpm exec tsc --noEmit -p .`: passed.
 - Final `pnpm lint`: passed, 6 legacy complexity warnings, no errors.
-- `pnpm exec eslint src/parser/astHelpers.ts src/parser/members.ts --rule 'complexity: [error, 15]'`:
+- Explicit complexity audit (limit 15, error severity) of `src/parser/astHelpers.ts src/parser/members.ts`:
   passed with no warnings or errors; all new/extracted functions meet the limit.
 - Relative documentation links and `git diff --check`: passed.
 - Extension-host checks not run: no provider registration or UI changes.

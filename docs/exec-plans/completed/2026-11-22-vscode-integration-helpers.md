@@ -48,8 +48,8 @@ local-member policies, error handling, and Markdown output.
 - Shared helpers and all source functions passed strict complexity checks.
 - `pnpm exec tsc --noEmit -p .`: passed.
 - `pnpm lint`: passed, zero warnings/errors.
-- `pnpm exec eslint src test/integration.test.mjs test/support test/extension-host --rule 'complexity: [error, 15]'`: passed.
-- `pnpm exec eslint test/fixtures/scenarios/static --no-config-lookup --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src test/integration.test.mjs test/support test/extension-host`: passed.
+- Explicit complexity audit (limit 15, error severity) of `test/fixtures/scenarios/static` with isolated configuration: passed.
 - `node --check test/extension-host/index.cjs` and `node --check test/extension-host/suite.mjs`: passed (syntax only).
 - Documentation validation: 34 local links resolve; debug/workspace JSON parses;
   `git diff --check` passed.

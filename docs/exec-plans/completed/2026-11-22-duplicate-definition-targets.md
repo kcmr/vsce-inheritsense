@@ -51,8 +51,8 @@ fallbacks that native JavaScript navigation cannot resolve.
   destination and extension-only `this.injected` navigation still works.
 - `pnpm exec tsc --noEmit -p .`: passed against the pinned 1.95.0 API types.
 - `pnpm lint`: passed with zero warnings/errors.
-- `pnpm exec eslint src test/definition-ranges.test.mjs test/integration.test.mjs test/support test/extension-host --rule 'complexity: [error, 15]'`: passed.
-- `pnpm exec eslint test/fixtures/scenarios/static --no-config-lookup --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src test/definition-ranges.test.mjs test/integration.test.mjs test/support test/extension-host`: passed.
+- Explicit complexity audit (limit 15, error severity) of `test/fixtures/scenarios/static` with isolated configuration: passed.
 - Host suite syntax check passed; it is updated for a single equivalent destination
   but has not been run as an automated editor suite after this correction.
 - Console-only tests with the 1.95.0 editor's Node 20.18.0: 122 passing, no TODOs

@@ -28,14 +28,14 @@ Do not change provider registration, resolution, Markdown output, or settings.
 
 ## Verification
 
-- Baseline `pnpm exec eslint src --rule 'complexity: [error, 15]'`: six errors, as expected.
+- Baseline explicit complexity audit (limit 15, error severity) of `src`: six errors, as expected.
 - Baseline `pnpm test`: 104 passing, no TODOs.
 - Final `pnpm test`: 113 passing, no TODOs.
 - `pnpm exec tsc --noEmit -p .`: passed.
 - `pnpm lint`: passed, zero warnings/errors.
-- `pnpm exec eslint src --rule 'complexity: [error, 15]'`: passed.
-- `pnpm exec eslint test/jsdoc.test.mjs test/parser.test.mjs --rule 'complexity: [error, 15]'`: passed.
-- `pnpm exec eslint test/fixtures/scenarios/static --no-config-lookup --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src`: passed.
+- Explicit complexity audit (limit 15, error severity) of `test/jsdoc.test.mjs test/parser.test.mjs`: passed.
+- Explicit complexity audit (limit 15, error severity) of `test/fixtures/scenarios/static` with isolated configuration: passed.
 - Review correction: `node --test test/jsdoc.test.mjs test/parser.test.mjs`:
   17 passing; strict lint for the changed hover import/test passed.
 - Documentation check: 31 local links resolve; `git diff --check` passed.

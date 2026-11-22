@@ -43,7 +43,7 @@ execution plans unless verification finds an issue within scope.
 - `pnpm exec tsc --noEmit -p .`: passed.
 - `pnpm test`: 139 passing, no TODOs/skips/failures.
 - `pnpm lint`: passed, zero warnings/errors.
-- `pnpm exec eslint src --rule 'complexity: [error, 15]'`: passed.
+- Explicit complexity audit (limit 15, error severity) of `src`: passed.
 - `pnpm install --frozen-lockfile --ignore-scripts --offline`: passed without
   dependency resolution or changes to the resulting lockfile.
 - After removal, `pnpm why @babel/traverse` is empty and resolving the package
