@@ -5,5 +5,12 @@ src/**
 test/**
 tsconfig.json
 eslint.config.mjs
-docs/extension-overview.md
+docs/**
+AGENTS.md
+release.config.mjs
+pnpm-lock.yaml
+pnpm-workspace.yaml
 .test-results/**
+node_modules/**
+dist/**
+!dist/extension.js
